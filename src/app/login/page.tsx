@@ -41,10 +41,10 @@ export default function LoginPage() {
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-[#DDFBFA] p-3 sm:p-6 lg:p-10">
-            <section className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-[#005F67]/20 md:grid-cols-2">
+            <section className="grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-2xl shadow-[#005F67]/20 min-[761px]:grid-cols-2">
 
                 {/* PANEL IZQUIERDO: IMAGEN */}
-                <div className="relative min-h-[340px] overflow-hidden bg-[#DDFBFA] sm:min-h-[400px] md:min-h-[570px]">
+                <div className="relative min-h-[340px] overflow-hidden bg-[#DDFBFA] max-[760px]:hidden md:min-h-[570px]">
                     <Image
                         src="/loginImagen.png"
                         alt="Ilustración de Semáforo Vital y albergues"
