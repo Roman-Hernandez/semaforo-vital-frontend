@@ -22,17 +22,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
   lint:
     name: Lint
@@ -42,20 +39,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run ESLint
-        run: pnpm lint
+        run: npm run lint
 
   typecheck:
     name: Type check
@@ -65,20 +59,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run TypeScript check
-        run: pnpm typecheck
+        run: npm run typecheck
 
   test:
     name: Unit tests
@@ -88,20 +79,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run unit tests
-        run: pnpm test -- --runInBand
+        run: npm test -- --run
 
   build:
     name: Build
@@ -111,20 +99,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Build application
-        run: pnpm build
+        run: npm run build
 
   sonar:
     name: SonarQube
@@ -139,20 +124,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run unit tests with coverage
-        run: pnpm test:coverage
+        run: npm run test:coverage
 
       - name: SonarQube Scan
         if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
