@@ -3,7 +3,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { SyntheticEvent } from "react";
 
 export default function LoginPage() {
     const [correo, setCorreo] = useState("");
@@ -16,7 +17,9 @@ export default function LoginPage() {
     >("");
 
 
-    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(
+        event: SyntheticEvent<HTMLFormElement>
+    ) {
         event.preventDefault();
 
         if (cargando) return;
@@ -235,8 +238,8 @@ export default function LoginPage() {
                                     role="status"
                                     aria-live="polite"
                                     className={`rounded-lg p-3 text-center text-sm leading-5 ${tipoMensaje === "error"
-                                            ? "bg-red-50 text-red-700"
-                                            : "bg-[#E6F9FA] text-[#087F8C]"
+                                        ? "bg-red-50 text-red-700"
+                                        : "bg-[#E6F9FA] text-[#087F8C]"
                                         }`}
                                 >
                                     {mensaje}
