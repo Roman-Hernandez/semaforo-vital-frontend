@@ -616,11 +616,6 @@ export default function HistorialPage() {
                 ref={dialogRef}
                 aria-labelledby="detalle-titulo"
                 onClose={() => setRegistroSeleccionado(null)}
-                onClick={(e) => {
-                    if (e.target === e.currentTarget) {
-                        setRegistroSeleccionado(null);
-                    }
-                }}
                 className="fixed inset-0 m-0 h-full w-full max-h-none max-w-none border-0 bg-transparent p-3 backdrop:bg-[#172B3B]/50 sm:p-6"
             >
                 {registroSeleccionado && (
