@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 
 interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
 }
 
 const menuItems = [

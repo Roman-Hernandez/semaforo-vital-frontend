@@ -1,11 +1,10 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Activity,
     Bell,
-    CalendarDays,
     CheckCircle2,
     ChevronDown,
     ChevronRight,
@@ -92,6 +91,165 @@ const responsables = [
     "Administración",
     "Equipo sanitario",
 ];
+const numeroMes: Record<string, string> = {
+    ene: "01",
+    feb: "02",
+    mar: "03",
+    abr: "04",
+    may: "05",
+    jun: "06",
+    jul: "07",
+    ago: "08",
+    sep: "09",
+    oct: "10",
+    nov: "11",
+    dic: "12",
+};
+
+function convertirFechaISO(fecha: string): string {
+    const [dia, mes, anio] = fecha.replace(".", "").split(" ");
+
+    return `${anio}-${numeroMes[mes] ?? "01"}-${dia.padStart(2, "0")}`;
+}
+interface FiltrosHistorial {
+    busqueda: string;
+    categoria: string;
+    responsable: string;
+    fechaDesde: string;
+    fechaHasta: string;
+}
+
+function coincideConFiltros(
+    registro: Registro,
+    filtros: FiltrosHistorial
+): boolean {
+    const texto = `${registro.descripcion} ${registro.categoria} ${registro.responsable}`.toLowerCase();
+
+    if (!texto.includes(filtros.busqueda.toLowerCase().trim())) {
+        return false;
+    }
+
+    if (
+        filtros.categoria !== "Todos" &&
+        registro.categoria !== filtros.categoria
+    ) {
+        return false;
+    }
+
+    if (
+        filtros.responsable !== "Todos los responsables" &&
+        registro.responsable !== filtros.responsable
+    ) {
+        return false;
+    }
+
+    const fechaRegistro = convertirFechaISO(registro.fecha);
+
+    if (filtros.fechaDesde && fechaRegistro < filtros.fechaDesde) {
+        return false;
+    }
+
+    if (filtros.fechaHasta && fechaRegistro > filtros.fechaHasta) {
+        return false;
+    }
+
+    return true;
+}
+function InformacionSanitaria({
+    registro,
+}: {
+    readonly registro: Registro;
+}) {
+    switch (registro.categoria) {
+        case "Población":
+            return (
+                <>
+                    <p className="text-sm font-semibold">
+                        Ocupación del albergue
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Consulta de la ocupación registrada y de la capacidad disponible.
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Los valores anteriores y actuales deben obtenerse de los registros de población.
+                    </p>
+                </>
+            );
+
+        case "Condiciones sanitarias":
+            return (
+                <>
+                    <p className="text-sm font-semibold">
+                        Condiciones sanitarias
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Consulta de las condiciones evaluadas, sus indicadores y las observaciones registradas.
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Los resultados específicos se mostrarán cuando estén disponibles en el registro.
+                    </p>
+                </>
+            );
+
+        case "Enfermedades":
+            return (
+                <>
+                    <p className="text-sm font-semibold">
+                        Seguimiento de enfermedades
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Consulta de los casos agregados registrados y su evolución histórica.
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        No se muestran datos personales de pacientes.
+                    </p>
+                </>
+            );
+
+        case "Alertas":
+            return (
+                <>
+                    <p className="text-sm font-semibold">
+                        Información de la alerta
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Consulta del motivo de la alerta, su estado y las acciones documentadas para atenderla.
+                    </p>
+                </>
+            );
+
+        case "Intervenciones":
+            return (
+                <>
+                    <p className="text-sm font-semibold">
+                        Actividad de intervención
+                    </p>
+                    <p className="mt-2 text-sm text-sm">
+                        Consulta de la actividad realizada y del resultado documentado por el equipo responsable.
+                    </p>
+                </>
+            );
+
+        default:
+            return (
+                <p className="text-sm text-sm">
+                    No hay información sanitaria adicional disponible para esta categoría.
+                </p>
+            );
+    }
+}
+function obtenerResultadoEstado(estado: string): string {
+    switch (estado) {
+        case "Completado":
+            return "La actividad figura como completada.";
+
+        case "Cerrado":
+            return "El registro figura como cerrado.";
+
+        default:
+            return `El registro figura como ${estado.toLowerCase()}.`;
+    }
+}
 
 export default function HistorialPage() {
     const [busqueda, setBusqueda] = useState("");
@@ -104,56 +262,40 @@ export default function HistorialPage() {
     const [registroSeleccionado, setRegistroSeleccionado] =
         useState<Registro | null>(null);
 
+    const dialogRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+
+        if (!dialog) return;
+
+        if (registroSeleccionado && !dialog.open) {
+            if (typeof dialog.showModal === "function") {
+                dialog.showModal();
+            } else {
+                dialog.setAttribute("open", "");
+            }
+        } else if (!registroSeleccionado && dialog.open) {
+            if (typeof dialog.close === "function") {
+                dialog.close();
+            } else {
+                dialog.removeAttribute("open");
+            }
+        }
+    }, [registroSeleccionado]);
+
     const registrosFiltrados = useMemo(() => {
-        return registrosIniciales.filter((registro) => {
-            const texto = `${registro.descripcion} ${registro.categoria} ${registro.responsable}`.toLowerCase();
+        const filtros: FiltrosHistorial = {
+            busqueda,
+            categoria,
+            responsable,
+            fechaDesde,
+            fechaHasta,
+        };
 
-            const coincideBusqueda = texto.includes(
-                busqueda.toLowerCase().trim(),
-            );
-
-            const coincideCategoria =
-                categoria === "Todos" || registro.categoria === categoria;
-
-            const coincideResponsable =
-                responsable === "Todos los responsables" ||
-                registro.responsable === responsable;
-
-            const [dia, mes, anio] = registro.fecha
-                .replace(".", "")
-                .split(" ");
-
-            const numeroMes: Record<string, string> = {
-                ene: "01",
-                feb: "02",
-                mar: "03",
-                abr: "04",
-                may: "05",
-                jun: "06",
-                jul: "07",
-                ago: "08",
-                sep: "09",
-                oct: "10",
-                nov: "11",
-                dic: "12",
-            };
-
-            const fechaRegistro = `${anio}-${numeroMes[mes] ?? "01"}-${dia.padStart(2, "0")}`;
-
-            const coincideDesde =
-                !fechaDesde || fechaRegistro >= fechaDesde;
-
-            const coincideHasta =
-                !fechaHasta || fechaRegistro <= fechaHasta;
-
-            return (
-                coincideBusqueda &&
-                coincideCategoria &&
-                coincideResponsable &&
-                coincideDesde &&
-                coincideHasta
-            );
-        });
+        return registrosIniciales.filter((registro) =>
+            coincideConFiltros(registro, filtros)
+        );
     }, [busqueda, categoria, responsable, fechaDesde, fechaHasta]);
 
     const limpiarFiltros = () => {
@@ -310,8 +452,8 @@ export default function HistorialPage() {
                             onClick={() => setCategoria(opcion)}
                             aria-pressed={categoria === opcion}
                             className={`rounded-lg border px-3 py-1.5 text-sm transition ${categoria === opcion
-                                    ? "border-[#00AEBB] bg-[#E5F9FA] font-semibold text-sm"
-                                    : "border-[#E3EAEE] bg-white text-sm hover:border-[#00AEBB]"
+                                ? "border-[#00AEBB] bg-[#E5F9FA] font-semibold text-sm"
+                                : "border-[#E3EAEE] bg-white text-sm hover:border-[#00AEBB]"
                                 }`}
                         >
                             {opcion}
@@ -470,18 +612,19 @@ export default function HistorialPage() {
             </p>
 
             {/* Detalle del registro */}
-            {registroSeleccionado && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#172B3B]/50 p-3 sm:p-6"
-                    onClick={() => setRegistroSeleccionado(null)}
-                >
-                    <section
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="detalle-titulo"
-                        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E3EAEE] bg-white shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    >
+            <dialog
+                ref={dialogRef}
+                aria-labelledby="detalle-titulo"
+                onClose={() => setRegistroSeleccionado(null)}
+                onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                        setRegistroSeleccionado(null);
+                    }
+                }}
+                className="fixed inset-0 m-0 h-full w-full max-h-none max-w-none border-0 bg-transparent p-3 backdrop:bg-[#172B3B]/50 sm:p-6"
+            >
+                {registroSeleccionado && (
+                    <section className="mx-auto my-auto flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E3EAEE] bg-white shadow-2xl">
                         {/* Encabezado */}
                         <div className="flex items-start justify-between gap-3 border-b border-[#E3EAEE] bg-[#E8F9F9] p-5 sm:p-6">
                             <div>
@@ -595,55 +738,9 @@ export default function HistorialPage() {
                                 </h3>
 
                                 <div className="rounded-xl border border-[#E3EAEE] p-4">
-                                    {registroSeleccionado.categoria === "Población" ? (
-                                        <>
-                                            <p className="text-sm font-semibold">Ocupación del albergue</p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Consulta de la ocupación registrada y de la capacidad disponible.
-                                            </p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Los valores anteriores y actuales deben obtenerse de los registros de población.
-                                            </p>
-                                        </>
-                                    ) : registroSeleccionado.categoria === "Condiciones sanitarias" ? (
-                                        <>
-                                            <p className="text-sm font-semibold">Condiciones sanitarias</p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Consulta de las condiciones evaluadas, sus indicadores y las observaciones registradas.
-                                            </p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Los resultados específicos se mostrarán cuando estén disponibles en el registro.
-                                            </p>
-                                        </>
-                                    ) : registroSeleccionado.categoria === "Enfermedades" ? (
-                                        <>
-                                            <p className="text-sm font-semibold">Seguimiento de enfermedades</p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Consulta de los casos agregados registrados y su evolución histórica.
-                                            </p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                No se muestran datos personales de pacientes.
-                                            </p>
-                                        </>
-                                    ) : registroSeleccionado.categoria === "Alertas" ? (
-                                        <>
-                                            <p className="text-sm font-semibold">Información de la alerta</p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Consulta del motivo de la alerta, su estado y las acciones documentadas para atenderla.
-                                            </p>
-                                        </>
-                                    ) : registroSeleccionado.categoria === "Intervenciones" ? (
-                                        <>
-                                            <p className="text-sm font-semibold">Actividad de intervención</p>
-                                            <p className="mt-2 text-sm text-sm">
-                                                Consulta de la actividad realizada y del resultado documentado por el equipo responsable.
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <p className="text-sm text-sm">
-                                            No hay información sanitaria adicional disponible para esta categoría.
-                                        </p>
-                                    )}
+                                    <InformacionSanitaria
+                                        registro={registroSeleccionado}
+                                    />
                                 </div>
                             </section>
 
@@ -678,11 +775,7 @@ export default function HistorialPage() {
                                             Resultado registrado
                                         </p>
                                         <p className="mt-1 text-sm text-sm">
-                                            {registroSeleccionado.estado === "Completado"
-                                                ? "La actividad figura como completada."
-                                                : registroSeleccionado.estado === "Cerrado"
-                                                    ? "El registro figura como cerrado."
-                                                    : `El registro figura como ${registroSeleccionado.estado.toLowerCase()}.`}
+                                            {obtenerResultadoEstado(registroSeleccionado.estado)}
                                         </p>
                                     </div>
 
@@ -740,8 +833,8 @@ export default function HistorialPage() {
                             </button>
                         </div>
                     </section>
-                </div>
-            )}
+                )}
+            </dialog>
 
         </div>
     );
@@ -754,11 +847,11 @@ function ResumenCard({
     icono,
     fecha = false,
 }: {
-    titulo: string;
-    valor: string;
-    detalle: string;
-    icono: React.ReactNode;
-    fecha?: boolean;
+    readonly titulo: string;
+    readonly valor: string;
+    readonly detalle: string;
+    readonly icono: React.ReactNode;
+    readonly fecha?: boolean;
 }) {
     return (
         <article className="rounded-xl border border-[#E3EAEE] bg-white p-3 shadow-sm sm:p-4">

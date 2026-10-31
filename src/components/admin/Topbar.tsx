@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 
 interface TopbarProps {
-  onMenuClick: () => void;
+  readonly onMenuClick: () => void;
 }
 
 export default function Topbar({ onMenuClick }: TopbarProps) {
