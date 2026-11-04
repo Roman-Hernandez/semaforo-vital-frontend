@@ -306,7 +306,7 @@ function ShelterCard({
 
 
 
-function RiskCard({ risk }: { risk: RiskLevel }) {
+function RiskCard({ risk }: { readonly risk: RiskLevel }) {
   const styles = {
     bajo: {
       circle: "bg-[#E6F7ED] text-[#19965B]",
