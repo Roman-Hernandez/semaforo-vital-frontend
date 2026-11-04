@@ -117,9 +117,9 @@ function SectionHeading({
   title,
   description,
 }: {
-  eyebrow: string;
-  title: string;
-  description: string;
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly description: string;
 }) {
   return (
     <div className="mb-6">
@@ -136,7 +136,7 @@ function SectionHeading({
   );
 }
 
-function RiskBadge({ risk }: { risk: RiskLevel }) {
+function RiskBadge({ risk }: { readonly risk: RiskLevel }) {
   const styles = {
     bajo: "bg-[#E7F7EE] text-[#168653]",
     medio: "bg-[#FFF4D9] text-[#A96A00]",
@@ -148,7 +148,11 @@ function RiskBadge({ risk }: { risk: RiskLevel }) {
       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${styles[risk]}`}
     >
       <span aria-hidden="true">
-        {risk === "bajo" ? "✓" : risk === "medio" ? "⚠" : "!"}
+        {(() => {
+          if (risk === "bajo") return "✓";
+          if (risk === "medio") return "⚠";
+          return "!";
+        })()}
       </span>
       Riesgo {risk === "critico" ? "crítico" : risk}
     </span>
@@ -160,7 +164,7 @@ function RiskBadge({ risk }: { risk: RiskLevel }) {
 function ShelterCard({
   shelter,
 }: {
-  shelter: (typeof shelters)[number];
+  readonly shelter: (typeof shelters)[number];
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -429,11 +433,11 @@ function ShelterMap() {
           <div
             className={`flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white text-sm font-bold text-white shadow-md ${markerStyles[point.risk]}`}
           >
-            {point.risk === "bajo"
-              ? "V"
-              : point.risk === "medio"
-                ? "A"
-                : "R"}
+            {(() => {
+              if (point.risk === "bajo") return "V";
+              if (point.risk === "medio") return "A";
+              return "R";
+            })()}
           </div>
 
           <span className="mt-1 whitespace-nowrap rounded-md bg-white/95 px-2 py-1 text-xs font-semibold text-[#164652] shadow-sm">
@@ -557,7 +561,7 @@ export default function HomePage() {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-[#D7EBED] bg-white px-3 py-1.5 text-xs font-semibold text-[#087F8C]">
               <span aria-hidden="true">♢</span>
-                {" "}Consulta pública · Actualización continua
+              {" "}Consulta pública · Actualización continua
             </span>
 
             <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-[#0A414D]">
@@ -705,17 +709,17 @@ export default function HomePage() {
             <div className="mb-6 flex flex-wrap gap-4 text-sm text-[#5F7880]">
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#188A5A]" />
-                Bajo
+                <span>Bajo</span>
               </span>
 
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#B57900]" />
-                Medio
+                <span>Medio</span>
               </span>
 
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#D9434B]" />
-                Crítico
+                <span>Crítico</span>
               </span>
             </div>
           </div>
@@ -1123,19 +1127,19 @@ export default function HomePage() {
             <ul className="mt-4 space-y-3 text-sm text-[#385C65]">
               <li className="flex gap-2">
                 <span className="font-bold text-[#008994]">✓</span>
-                Hierve el agua antes de consumirla.
+                <span>Hierve el agua antes de consumirla.</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-[#008994]">✓</span>
-                Utiliza recipientes limpios y desinfectados.
+                <span>Utiliza recipientes limpios y desinfectados.</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-[#008994]">✓</span>
-                Mantén los recipientes bien tapados.
+                <span>Mantén los recipientes bien tapados.</span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-[#008994]">✓</span>
-                Evita introducir vasos o manos en los recipientes.
+                <span>Evita introducir vasos o manos en los recipientes.</span>
               </li>
             </ul>
 
