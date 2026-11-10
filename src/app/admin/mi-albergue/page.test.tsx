@@ -108,89 +108,52 @@ describe("MiAlberguePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("debe mostrar un error cuando hay campos obligatorios vacíos", () => {
-    render(<MiAlberguePage />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /editar información/i })
-    );
+it.each([
+  {
+    descripcion: "campos obligatorios vacíos",
+    valorInicial: "San José",
+    nuevoValor: "",
+    mensaje: "Todos los campos son obligatorios.",
+  },
+  {
+    descripcion: "capacidad",
+    valorInicial: "180",
+    nuevoValor: "0",
+    mensaje: "La capacidad debe ser un número entero mayor que cero.",
+  },
+  {
+    descripcion: "correo electrónico",
+    valorInicial: "sanjose@albergues.org.co",
+    nuevoValor: "correo-invalido",
+    mensaje: "Ingresa un correo electrónico válido.",
+  },
+  {
+    descripcion: "teléfono",
+    valorInicial: "+57 310 555 0142",
+    nuevoValor: "abc",
+    mensaje: "Ingresa un número de teléfono válido.",
+  },
+])("debe validar $descripcion", ({
+  valorInicial,
+  nuevoValor,
+  mensaje,
+}) => {
+  render(<MiAlberguePage />);
 
-    fireEvent.change(screen.getByDisplayValue("San José"), {
-      target: { value: "" },
-    });
+  fireEvent.click(
+    screen.getByRole("button", { name: /editar información/i })
+  );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /guardar cambios/i })
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Todos los campos son obligatorios."
-    );
+  fireEvent.change(screen.getByDisplayValue(valorInicial), {
+    target: { value: nuevoValor },
   });
 
-  it("debe validar que la capacidad sea un número entero mayor que cero", () => {
-    render(<MiAlberguePage />);
+  fireEvent.click(
+    screen.getByRole("button", { name: /guardar cambios/i })
+  );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /editar información/i })
-    );
+  expect(screen.getByRole("alert")).toHaveTextContent(mensaje);
+});
 
-    fireEvent.change(screen.getByDisplayValue("180"), {
-      target: { value: "0" },
-    });
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /guardar cambios/i })
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "La capacidad debe ser un número entero mayor que cero."
-    );
-  });
-
-  it("debe validar el formato del correo electrónico", () => {
-    render(<MiAlberguePage />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /editar información/i })
-    );
-
-    fireEvent.change(
-      screen.getByDisplayValue("sanjose@albergues.org.co"),
-      {
-        target: { value: "correo-invalido" },
-      }
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /guardar cambios/i })
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Ingresa un correo electrónico válido."
-    );
-  });
-
-  it("debe validar el formato del teléfono", () => {
-    render(<MiAlberguePage />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /editar información/i })
-    );
-
-    fireEvent.change(
-      screen.getByDisplayValue("+57 310 555 0142"),
-      {
-        target: { value: "abc" },
-      }
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /guardar cambios/i })
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Ingresa un número de teléfono válido."
-    );
-  });
 });

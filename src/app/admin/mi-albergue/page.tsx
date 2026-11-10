@@ -79,7 +79,17 @@ export default function MiAlberguePage() {
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    const email = form.email.trim();
+    const atIndex = email.indexOf("@");
+    const lastDotIndex = email.lastIndexOf(".");
+
+    if (
+      atIndex <= 0 ||
+      atIndex !== email.lastIndexOf("@") ||
+      lastDotIndex < atIndex + 2 ||
+      lastDotIndex === email.length - 1 ||
+      email.includes(" ")
+    ) {
       setError("Ingresa un correo electrónico válido.");
       return;
     }
@@ -102,13 +112,17 @@ export default function MiAlberguePage() {
     type = "text"
   ) => (
     <div>
-      <label className="mb-1 block text-xs text-[#8297A1]">
+      <label
+        htmlFor={`shelter-${field}`}
+        className="mb-1 block text-xs text-[#8297A1]"
+      >
         {label}
       </label>
 
       {isEditing ? (
         <input
           type={type}
+          id={`shelter-${field}`}
           min={type === "number" ? "1" : undefined}
           step={type === "number" ? "1" : undefined}
           value={form[field]}
@@ -195,7 +209,7 @@ export default function MiAlberguePage() {
                 </label>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#E9F7F0] px-2.5 py-1 text-xs font-medium text-[#23845A]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#32A875]" />
-                  Activo
+                  <span>Activo</span>
                 </span>
               </div>
             </div>
@@ -313,9 +327,9 @@ export default function MiAlberguePage() {
       )}
 
       {success && (
-        <p role="status" className="text-sm text-[#23845A]">
+        <output className="text-sm text-[#23845A]">
           {success}
-        </p>
+        </output>
       )}
     </div>
   );

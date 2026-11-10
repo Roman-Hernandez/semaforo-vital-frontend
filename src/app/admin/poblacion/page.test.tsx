@@ -53,49 +53,43 @@ describe("PoblacionPage", () => {
         ).toBeInTheDocument();
     });
 
-    it("debe validar que la cantidad de personas sea obligatoria", () => {
-        fireEvent.click(
-            screen.getByRole("button", { name: /guardar registro/i })
-        );
 
-        expect(
-            screen.getByText("Ingresa una cantidad válida de personas.")
-        ).toBeInTheDocument();
-
-        expect(screen.getByText("0 registros")).toBeInTheDocument();
-    });
-
-    it("no debe permitir cantidades negativas", () => {
-        fireEvent.change(
-            screen.getByLabelText("Cantidad de personas alojadas"),
-            { target: { value: "-5" } }
-        );
-
-        fireEvent.click(
-            screen.getByRole("button", { name: /guardar registro/i })
-        );
-
-        expect(
-            screen.getByText("La cantidad de personas no puede ser negativa.")
-        ).toBeInTheDocument();
-    });
-
-    it("no debe permitir superar la capacidad máxima", () => {
-        fireEvent.change(
-            screen.getByLabelText("Cantidad de personas alojadas"),
-            { target: { value: "200" } }
-        );
+    it.each([
+        {
+            descripcion: "que la cantidad de personas sea obligatoria",
+            cantidad: "",
+            mensaje: "Ingresa una cantidad válida de personas.",
+        },
+        {
+            descripcion: "que no se permitan cantidades negativas",
+            cantidad: "-5",
+            mensaje: "La cantidad de personas no puede ser negativa.",
+        },
+        {
+            descripcion: "que no se supere la capacidad máxima",
+            cantidad: "200",
+            mensaje:
+                "La cantidad no puede superar la capacidad máxima de 180 personas.",
+        },
+    ])("debe validar $descripcion", ({ cantidad, mensaje }) => {
+        if (cantidad !== "") {
+            fireEvent.change(
+                screen.getByLabelText("Cantidad de personas alojadas"),
+                { target: { value: cantidad } }
+            );
+        }
 
         fireEvent.click(
             screen.getByRole("button", { name: /guardar registro/i })
         );
 
-        expect(
-            screen.getByText(
-                "La cantidad no puede superar la capacidad máxima de 180 personas."
-            )
-        ).toBeInTheDocument();
+        expect(screen.getByText(mensaje)).toBeInTheDocument();
+
+        if (cantidad === "") {
+            expect(screen.getByText("0 registros")).toBeInTheDocument();
+        }
     });
+
 
     it("debe guardar un registro correctamente", () => {
         fireEvent.change(
