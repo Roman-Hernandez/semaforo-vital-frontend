@@ -7,7 +7,7 @@ import HomePage from "./page";
 // Evita problemas con el componente Image de Next.js durante las pruebas.
 vi.mock("next/image", () => ({
   default: ({
-    priority: _priority,
+    priority,
     alt = "",
     ...props
   }: React.ComponentProps<"img"> & { priority?: boolean }) => (
@@ -74,7 +74,6 @@ it("debe mostrar los tres niveles de riesgo", () => {
     expect(
       screen.getByText("Centro Comunitario El Bosque")
     ).toBeInTheDocument();
-
     expect(
       screen.getByText("Escuela Rural San José")
     ).toBeInTheDocument();
