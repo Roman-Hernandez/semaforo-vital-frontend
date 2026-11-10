@@ -104,9 +104,9 @@ const interventions = [
 
 function SectionTitle({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <h3 className="text-sm font-bold text-[#24364B]">
       {children}
@@ -283,10 +283,10 @@ export default function AdminDashboardPage() {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <SectionTitle>Evolución epidemiológica</SectionTitle>
-              <p className="mt-2 text-[10px] text-[#71868D]">
-                <span className="mr-1 text-[#00B8C4]">●</span>
-                Casos nuevos por día · Todas las enfermedades
-              </p>
+            <p className="mt-2 text-[10px] text-[#71868D]">
+              <span className="mr-1 text-[#00B8C4]">●</span>
+              {"Casos nuevos por día · Todas las enfermedades"}
+            </p>  
             </div>
             <span className="text-[10px] text-[#82939D]">
               30 sep – 06 oct 2026
