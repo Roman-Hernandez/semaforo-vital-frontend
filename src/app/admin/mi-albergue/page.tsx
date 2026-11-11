@@ -105,21 +105,23 @@ export default function MiAlberguePage() {
     setIsEditing(false);
   };
 
-  const renderField = (
-    label: string,
-    field: keyof Shelter,
-    value: string,
-    type = "text"
-  ) => (
-    <div>
-      <label
-        htmlFor={`shelter-${field}`}
-        className="mb-1 block text-xs text-[#8297A1]"
-      >
-        {label}
-      </label>
+ 
+const renderField = (
+  label: string,
+  field: keyof Shelter,
+  value: string,
+  type = "text"
+) => (
+  <div>
+    {isEditing ? (
+      <>
+        <label
+          htmlFor={`shelter-${field}`}
+          className="mb-1 block text-xs text-[#8297A1]"
+        >
+          {label}
+        </label>
 
-      {isEditing ? (
         <input
           type={type}
           id={`shelter-${field}`}
@@ -129,11 +131,16 @@ export default function MiAlberguePage() {
           onChange={(event) => handleChange(field, event.target.value)}
           className="w-full rounded-lg border border-[#DCE6EA] bg-white px-3 py-2 text-sm text-[#29434D] outline-none transition focus:border-[#00B9C7] focus:ring-2 focus:ring-[#00B9C7]/10"
         />
-      ) : (
+      </>
+    ) : (
+      <>
+        <p className="mb-1 text-xs text-[#8297A1]">{label}</p>
         <p className="text-sm text-[#29434D]">{value}</p>
-      )}
-    </div>
-  );
+      </>
+    )}
+  </div>
+);
+
 
   return (
     <div className="space-y-6">
@@ -204,9 +211,9 @@ export default function MiAlberguePage() {
               )}
 
               <div>
-                <label className="mb-1 block text-xs text-[#8297A1]">
+                <p className="mb-1 text-xs text-[#8297A1]">
                   Estado del albergue
-                </label>
+                </p>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#E9F7F0] px-2.5 py-1 text-xs font-medium text-[#23845A]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#32A875]" />
                   <span>Activo</span>
@@ -215,9 +222,9 @@ export default function MiAlberguePage() {
             </div>
 
             <div className="border-t border-[#E8EEF1] pt-4">
-              <label className="mb-1 block text-xs text-[#8297A1]">
+              <p className="mb-1 text-xs text-[#8297A1]">
                 Fecha de registro
-              </label>
+              </p>
               <p className="text-sm text-[#29434D]">
                 12 de septiembre de 2026
               </p>
