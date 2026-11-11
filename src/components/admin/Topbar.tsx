@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, LogOut, X } from "lucide-react";
 
@@ -14,10 +14,24 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter();
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (showLogoutModal && dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, [showLogoutModal]);
 
   const handleLogout = () => {
     sessionStorage.removeItem("access_token");
+    setShowLogoutModal(false);
     router.replace("/login");
+  };
+
+  const handleCloseModal = () => {
+    setShowLogoutModal(false);
   };
 
   const pageTitles: Record<string, string> = {
@@ -32,7 +46,6 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   return (
     <>
       <header className="flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-[#E3EAEE] bg-white px-4 py-3 sm:px-6">
-
         {/* Botón hamburguesa */}
         <button
           type="button"
@@ -73,7 +86,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           <button
             type="button"
             onClick={() => setShowLogoutModal(true)}
-            className="ml-1 rounded-lg border border-[#E0E8ED] px-3 py-2 text-[11px] font-semibold text-[#24364B] transition hover:bg-[#E4F8F8] hover:border-[#A5DEDA]"
+            className="ml-1 rounded-lg border border-[#E0E8ED] px-3 py-2 text-[11px] font-semibold text-[#24364B] transition hover:border-[#A5DEDA] hover:bg-[#E4F8F8]"
           >
             <span className="flex items-center gap-1.5">
               <LogOut size={14} />
@@ -85,72 +98,67 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
       {/* Modal de confirmación */}
       {showLogoutModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#24364B]/50 p-4 backdrop-blur-[2px]"
-          onClick={() => setShowLogoutModal(false)}
+        <dialog
+          ref={dialogRef}
+          aria-labelledby="logout-title"
+          aria-describedby="logout-description"
+          onClose={handleCloseModal}
+          onCancel={handleCloseModal}
+          className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-[400px] rounded-2xl bg-white p-6 shadow-2xl backdrop:bg-[#24364B]/50 backdrop:backdrop-blur-[2px] sm:p-7"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="logout-title"
-            aria-describedby="logout-description"
-            className="relative w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-2xl sm:p-7"
-            onClick={(e) => e.stopPropagation()}
+          {/* Botón cerrar */}
+          <button
+            type="button"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="Cerrar ventana"
+            className="absolute right-4 top-4 rounded-lg p-1.5 text-[#71868D] transition hover:bg-[#E4F8F8] hover:text-[#087F8C]"
           >
-            {/* Botón cerrar */}
+            <X size={19} />
+          </button>
+
+          {/* Icono */}
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#DDFBFA]">
+            <LogOut size={30} className="text-[#087F8C]" />
+          </div>
+
+          {/* Mensaje */}
+          <div className="text-center">
+            <h2
+              id="logout-title"
+              className="text-lg font-bold text-[#24364B]"
+            >
+              ¿Cerrar sesión?
+            </h2>
+
+            <p
+              id="logout-description"
+              className="mt-2 text-sm leading-relaxed text-[#71868D]"
+            >
+              ¿Estás seguro de que deseas cerrar tu sesión?
+              Tendrás que iniciar sesión nuevamente para acceder
+              al panel de administración.
+            </p>
+          </div>
+
+          {/* Botones */}
+          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={() => setShowLogoutModal(false)}
-              aria-label="Cerrar ventana"
-              className="absolute right-4 top-4 rounded-lg p-1.5 text-[#71868D] transition hover:bg-[#E4F8F8] hover:text-[#087F8C]"
+              onClick={() => dialogRef.current?.close()}
+              className="flex-1 rounded-xl border border-[#E0E8ED] bg-[#F5F9FB] px-4 py-3 text-sm font-semibold text-[#24364B] transition hover:bg-[#EAF1F4]"
             >
-              <X size={19} />
+              Cancelar
             </button>
 
-            {/* Icono */}
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#DDFBFA]">
-              <LogOut size={30} className="text-[#087F8C]" />
-            </div>
-
-            {/* Mensaje */}
-            <div className="text-center">
-              <h2
-                id="logout-title"
-                className="text-lg font-bold text-[#24364B]"
-              >
-                ¿Cerrar sesión?
-              </h2>
-
-              <p
-                id="logout-description"
-                className="mt-2 text-sm leading-relaxed text-[#71868D]"
-              >
-                ¿Estás seguro de que deseas cerrar tu sesión?
-                Tendrás que iniciar sesión nuevamente para acceder
-                al panel de administración.
-              </p>
-            </div>
-
-            {/* Botones */}
-            <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => setShowLogoutModal(false)}
-                className="flex-1 rounded-xl border border-[#E0E8ED] bg-[#F5F9FB] px-4 py-3 text-sm font-semibold text-[#24364B] transition hover:bg-[#EAF1F4]"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex-1 rounded-xl bg-[#30CDD3] px-4 py-3 text-sm font-semibold text-[#24364B] transition hover:bg-[#24B8BE] focus:outline-none focus:ring-2 focus:ring-[#30CDD3] focus:ring-offset-2"
-              >
-                Sí, cerrar sesión
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex-1 rounded-xl bg-[#30CDD3] px-4 py-3 text-sm font-semibold text-[#24364B] transition hover:bg-[#24B8BE] focus:outline-none focus:ring-2 focus:ring-[#30CDD3] focus:ring-offset-2"
+            >
+              Sí, cerrar sesión
+            </button>
           </div>
-        </div>
+        </dialog>
       )}
     </>
   );
