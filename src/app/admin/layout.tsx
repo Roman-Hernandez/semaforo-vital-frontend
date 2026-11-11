@@ -23,7 +23,9 @@ export default function AdminLayout({
       return;
     }
 
-    setIsAuthenticated(true);
+    Promise.resolve().then(() => {
+      setIsAuthenticated(true);
+    });
   }, [router]);
 
   if (!isAuthenticated) {
