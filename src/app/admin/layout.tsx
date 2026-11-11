@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import Topbar from "@/components/admin/Topbar";
 
@@ -11,10 +12,26 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("access_token");
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    setIsAuthenticated(true);
+  }, [router]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#F3F6FA] lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
-
       <Sidebar
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -27,7 +44,6 @@ export default function AdminLayout({
           {children}
         </main>
       </div>
-
     </div>
   );
 }
