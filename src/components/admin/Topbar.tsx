@@ -3,12 +3,22 @@
 
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 interface TopbarProps {
   readonly onMenuClick: () => void;
 }
 
 export default function Topbar({ onMenuClick }: TopbarProps) {
+  const pathname = usePathname();
+  const pageTitles: Record<string, string> = {
+  "/admin": "Inicio",
+  "/admin/mi-albergue": "Mi albergue",
+  "/admin/poblacion": "Población",
+  "/admin/historial": "Historial",
+};
+
+const pageTitle = pageTitles[pathname] ?? "Semáforo Vital";
   return (
     <header className="flex min-h-[64px] flex-wrap items-center justify-between gap-3 border-b border-[#E3EAEE] bg-white px-4 py-3 sm:px-6">
 
@@ -25,7 +35,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
       {/* Información de la página */}
       <div className="mr-auto">
         <h1 className="text-sm font-bold text-[#24364B]">
-          Historial
+          {pageTitle}
         </h1>
 
         <p className="mt-1 text-[11px] text-[#71868D]">

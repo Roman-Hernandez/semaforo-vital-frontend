@@ -1,9 +1,18 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { usePathname } from "next/navigation";
 import Topbar from "./Topbar";
 
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(),
+}));
+
 describe("Barra superior - Semáforo Vital", () => {
+  beforeEach(() => {
+    vi.mocked(usePathname).mockReturnValue("/admin/historial");
+  });
+
   it("muestra el título de la página", () => {
     render(<Topbar onMenuClick={vi.fn()} />);
 
