@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState} from "react";
 import {
   AlertTriangle,
   Check,
@@ -110,7 +110,7 @@ function formatDate(date: string) {
     .replace(".", "")} ${year}`;
 }
 
-function StatusBadge({ status }: { status: CaseStatus }) {
+function StatusBadge({ status }: { readonly status: CaseStatus }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium ${statusStyles[status]}`}
@@ -206,7 +206,7 @@ export default function EnfermedadesPage() {
     setError("");
   };
 
-  const handleRegister = (event: FormEvent<HTMLFormElement>) => {
+  const handleRegister: React.ComponentProps<"form">["onSubmit"] = (event) => {
     event.preventDefault();
     setError("");
     setSuccess("");
@@ -384,13 +384,13 @@ export default function EnfermedadesPage() {
       )}
 
       {success && (
-        <div
+        <output
           role="status"
           className="flex items-center gap-2 rounded-lg bg-[#E8F7F0] p-3 text-xs text-[#23845A]"
         >
           <CheckCircle2 size={16} />
           {success}
-        </div>
+        </output>
       )}
 
       {/* FORMULARIO DE REGISTRO */}
@@ -790,12 +790,11 @@ export default function EnfermedadesPage() {
       {/* DETALLE DEL CASO */}
       {selectedCase && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#203B45]/40 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="detail-title"
-            className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6"
-          >
+          <dialog
+  open
+  aria-labelledby="detail-title"
+  className="m-auto w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6"
+>
             <div className="mb-5 flex items-center justify-between">
               <h2
                 id="detail-title"
@@ -869,7 +868,7 @@ export default function EnfermedadesPage() {
             >
               Cerrar
             </button>
-          </section>
+          </dialog>
         </div>
       )}
     </div>

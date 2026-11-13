@@ -93,8 +93,8 @@ export default function CondicionesSanitariasPage() {
     setSuccess("");
   };
 
-  const handleSave = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSave: React.ComponentProps<"form">["onSubmit"] = (event) => {
+  event.preventDefault();
 
     if (
       !form.waterAvailability ||
@@ -149,6 +149,13 @@ export default function CondicionesSanitariasPage() {
       {status}
     </span>
   );
+  let bathroomStatus: Status = "Adecuado";
+
+if (record.bathrooms === 0 || record.latrines === 0) {
+  bathroomStatus = "Crítico";
+} else if (record.bathrooms < 2) {
+  bathroomStatus = "Requiere atención";
+}
 
   const summaryCards = [
     {
@@ -162,12 +169,7 @@ export default function CondicionesSanitariasPage() {
       title: "Baños y letrinas",
       value: `${record.bathrooms} baños · ${record.latrines} letrinas`,
       description: "Infraestructura sanitaria",
-      status:
-        record.bathrooms === 0 || record.latrines === 0
-          ? "Crítico"
-          : record.bathrooms < 2
-            ? "Requiere atención"
-            : "Adecuado",
+      status: bathroomStatus,
       icon: Bath,
     },
     {
@@ -223,13 +225,7 @@ export default function CondicionesSanitariasPage() {
 
         <button
           type="button"
-          onClick={() => {
-            setForm(record);
-            setIsEditing(true);
-            setEditingHistory(false);
-            setError("");
-            setSuccess("");
-          }}
+          onClick={handleEdit}
           className="flex items-center justify-center gap-2 rounded-lg bg-[#00B9C7] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#009EAD]"
         >
           <Plus size={16} />
@@ -518,12 +514,9 @@ export default function CondicionesSanitariasPage() {
       )}
 
       {success && (
-        <div
-          role="status"
-          className="rounded-lg border border-[#CDEBDD] bg-[#E9F7F0] p-3 text-sm text-[#23845A]"
-        >
+        <output className="block rounded-lg border border-[#CDEBDD] bg-[#E9F7F0] p-3 text-sm text-[#23845A]">
           {success}
-        </div>
+        </output>
       )}
 
       {/* Historial */}
