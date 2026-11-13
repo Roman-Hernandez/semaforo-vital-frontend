@@ -385,7 +385,6 @@ export default function EnfermedadesPage() {
 
       {success && (
         <output
-          role="status"
           className="flex items-center gap-2 rounded-lg bg-[#E8F7F0] p-3 text-xs text-[#23845A]"
         >
           <CheckCircle2 size={16} />
