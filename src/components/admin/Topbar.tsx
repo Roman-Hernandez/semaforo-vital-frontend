@@ -39,6 +39,10 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     "/admin/mi-albergue": "Mi albergue",
     "/admin/poblacion": "Población",
     "/admin/historial": "Historial",
+    "/admin/condiciones-sanitarias": "Condiciones sanitarias",
+    "/admin/enfermedades": "Enfermedades",
+    "/admin/alertas": "Alertas",
+    "/admin/semaforo-vital": "Semáforo Vital",
   };
 
   const pageTitle = pageTitles[pathname] ?? "Semáforo Vital";
