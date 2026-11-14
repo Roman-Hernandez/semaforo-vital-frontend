@@ -140,7 +140,7 @@ export default function AlertasPage() {
     link.download = "historial-alertas.csv";
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     URL.revokeObjectURL(url);
   };
 
@@ -493,20 +493,13 @@ export default function AlertasPage() {
 
       {/* Modal de detalle */}
       {selectedAlert && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#172B3D]/40 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setSelectedAlert(null);
-            }
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="alert-detail-title"
-            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
-          >
+  <dialog
+    open
+    aria-labelledby="alert-detail-title"
+    className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-[#172B3D]/40 p-4"
+  >
+    <section
+      className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium text-[#009EAD]">
@@ -575,7 +568,8 @@ export default function AlertasPage() {
               Cerrar
             </button>
           </section>
-        </div>
+        </dialog>
+
       )}
     </div>
   );
@@ -586,14 +580,14 @@ function MetricCard({
   value,
   description,
   icon,
-  valueColor = "text-[#24364B]",
-}: {
+  valueColor,
+}: Readonly<{
   title: string;
   value: number;
   description: string;
   icon: React.ReactNode;
   valueColor?: string;
-}) {
+}>) {
   return (
     <article className="rounded-xl border border-[#E4EBEF] bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
@@ -610,9 +604,9 @@ function MetricCard({
 
 function PriorityBadge({
   priority,
-}: {
+}: Readonly<{
   priority: AlertItem["priority"];
-}) {
+}>) {
   const styles = {
     Alta: "bg-[#FFF0EC] text-[#D66A4D]",
     Media: "bg-[#FFF6E5] text-[#B47A16]",
