@@ -177,9 +177,6 @@ export default function ModeloSirPage() {
     setExecutionDate("");
   };
 
-  const lastPoint =
-    simulation.data[simulation.data.length - 1];
-
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-5">
       {/* Encabezado */}
@@ -424,13 +421,12 @@ export default function ModeloSirPage() {
         </div>
 
         {executed && (
-          <p
-            role="status"
-            className="mt-3 rounded-lg bg-[#E8FAFB] p-3 text-xs text-[#008C99]"
+          <output
+            className="mt-3 block rounded-lg bg-[#E8FAFB] p-3 text-xs text-[#008C99]"
           >
             Simulación local ejecutada correctamente. Los resultados son
             ilustrativos y no provienen del backend.
-          </p>
+          </output>
         )}
       </section>
 
@@ -455,17 +451,17 @@ export default function ModeloSirPage() {
         {/* Leyenda */}
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] text-[#718895]">
           <span className="flex items-center gap-2">
-            <span className="h-0.5 w-5 bg-[#00AEBB]" />
+            <span className="h-0.5 w-5 bg-[#00AEBB]" />{" "}
             Susceptibles (S)
           </span>
 
           <span className="flex items-center gap-2">
-            <span className="w-5 border-t-2 border-dashed border-[#E58A24]" />
+            <span className="w-5 border-t-2 border-dashed border-[#E58A24]" />{" "}
             Infectados (I)
           </span>
 
           <span className="flex items-center gap-2">
-            <span className="w-5 border-t-2 border-dotted border-[#5279D9]" />
+            <span className="w-5 border-t-2 border-dotted border-[#5279D9]" />{" "}
             Recuperados (R)
           </span>
         </div>
@@ -649,7 +645,7 @@ function SIRChart({
 
   const peakX = x(peakDay);
   const peakY = y(peak);
-  const last = data[data.length - 1];
+  const last = data.at(-1) ?? { day: 0, s: 225, i: 15, r: 5 };
 
   const ticks = [0, 50, 100, 150, 200, 250];
 
