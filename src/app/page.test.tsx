@@ -5,15 +5,16 @@ import "@testing-library/jest-dom/vitest";
 import HomePage from "./page";
 
 // Evita problemas con el componente Image de Next.js durante las pruebas.
+/* eslint-disable @next/next/no-img-element */
 vi.mock("next/image", () => ({
   default: ({
-    priority,
     alt = "",
     ...props
   }: React.ComponentProps<"img"> & { priority?: boolean }) => (
     <img {...props} alt={alt} />
   ),
 }));
+/* eslint-enable @next/next/no-img-element */
 
 describe("Página principal pública - Semáforo Vital", () => {
   it("debe renderizar correctamente la página principal", () => {
