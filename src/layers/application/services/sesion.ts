@@ -7,10 +7,10 @@ export interface Sesion {
 
 export const CLAVE_TOKEN = "semaforo_vital_token";
 
-const ROLES: readonly RolUsuario[] = [
+const ROLES: ReadonlySet<string> = new Set<RolUsuario>([
   "super_administrador",
   "administrador_albergue",
-];
+]);
 
 export function leerToken(): string | null {
   try {
@@ -38,7 +38,7 @@ export function rolDesdeToken(token: string | null): RolUsuario | null {
       return null;
     }
 
-    return ROLES.includes(datos.role) ? datos.role : null;
+    return ROLES.has(datos.role) ? datos.role : null;
   } catch {
     return null;
   }

@@ -113,7 +113,7 @@ export default function SuperAdminSidebar({ isOpen, onClose }: SuperAdminSidebar
         <div className="rounded-lg bg-[#F8FAFB] p-3">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[#159B64]">
             <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#23A96E]" />
-            Sistema operativo
+            <span>Sistema operativo</span>
           </p>
           <p className="mt-1 text-[10px] text-[#53636B]">Albergues sincronizados</p>
         </div>

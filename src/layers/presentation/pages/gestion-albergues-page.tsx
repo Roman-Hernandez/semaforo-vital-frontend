@@ -91,6 +91,12 @@ function horaActual(): string {
   }).format(new Date());
 }
 
+function enfocarPanel() {
+  if (globalThis.matchMedia?.("(max-width: 1023px)").matches) {
+    document.getElementById("panel-albergue")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 function Resumen({ albergues }: { readonly albergues: Albergue[] }) {
   const activos = albergues.filter((a) => a.activo).length;
   const poblacion = albergues.reduce((total, a) => total + (a.poblacionActual ?? 0), 0);
@@ -211,12 +217,6 @@ export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesion
   );
   const seleccionado = albergues.find((a) => a.id === seleccionadoId) ?? null;
 
-  function enfocarPanel() {
-    if (globalThis.matchMedia?.("(max-width: 1023px)").matches) {
-      document.getElementById("panel-albergue")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
   function abrir(albergue: Albergue | null, siguienteModo: ModoPanel, confirmar = false) {
     setSeleccionadoId(albergue?.id ?? seleccionadoId);
     setModo(siguienteModo);
@@ -288,9 +288,9 @@ export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesion
 
   if (sesion === undefined) {
     return (
-      <div role="status" className="p-8 text-center text-[13px] text-[#53636B]">
+      <output className="block p-8 text-center text-[13px] text-[#53636B]">
         Verificando sesión…
-      </div>
+      </output>
     );
   }
 
@@ -343,13 +343,13 @@ export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesion
       {esSuperAdmin ? (
         <>
           {aviso && (
-            <div role="status" className="mt-4 flex items-start gap-2 rounded-lg bg-[#E9F7F0] px-3 py-2.5 text-[13px] text-[#15784E]">
+            <output className="mt-4 flex items-start gap-2 rounded-lg bg-[#E9F7F0] px-3 py-2.5 text-[13px] text-[#15784E]">
               <CheckCircle2 size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-              <p className="flex-1">{aviso}</p>
+              <span className="flex-1">{aviso}</span>
               <button type="button" aria-label="Cerrar aviso" onClick={() => setAviso("")}>
                 <X size={15} aria-hidden="true" />
               </button>
-            </div>
+            </output>
           )}
 
           {estadoCarga === "listo" && albergues.length > 0 && (
