@@ -228,6 +228,8 @@ function FormularioAlbergue({
 
   const prefijo = `alb-${modo}`;
   const esEdicion = modo === "editar";
+  const textoAccion = esEdicion ? "Guardar cambios" : "Registrar";
+  const textoEnviar = guardando ? "Guardando…" : textoAccion;
 
   function cambiar<K extends CampoAlbergue>(campo: K, valor: AlbergueFormulario[K]) {
     const siguientes = { ...valores, [campo]: valor };
@@ -457,7 +459,7 @@ function FormularioAlbergue({
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00C3D0] text-[13px] font-semibold text-white transition hover:bg-[#00AEB9] disabled:cursor-wait disabled:opacity-80"
         >
           {guardando && <LoaderCircle size={15} aria-hidden="true" className="animate-spin" />}
-          {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Registrar"}
+          {textoEnviar}
         </button>
       </div>
     </form>

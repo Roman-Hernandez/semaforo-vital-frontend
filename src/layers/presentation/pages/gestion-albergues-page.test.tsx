@@ -194,11 +194,9 @@ describe("Gestión de albergues - Súper Administrador", () => {
     let resolver: (valor: Albergue) => void = () => {};
     const gateway = crearGatewayMemoria(ALBERGUES_DEMO, 0);
     vi.spyOn(gateway, "actualizar").mockImplementation(
-      (id, entrada) =>
+      () =>
         new Promise((resolve) => {
           resolver = resolve;
-          void id;
-          void entrada;
         })
     );
     const { usuario } = renderizar(gateway);

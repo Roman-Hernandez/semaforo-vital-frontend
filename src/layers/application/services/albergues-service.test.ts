@@ -91,12 +91,8 @@ describe("Gateway HTTP", () => {
   });
 
   it("envía el token y las operaciones a los endpoints esperados", async () => {
-    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
-      void url;
-      void init;
-      return respuesta(200, albergueApi);
-    });
-    const gateway = crearGatewayHttp("http://api.local/", () => "token-1", fetchFn as typeof fetch);
+    const fetchFn = vi.fn<typeof fetch>(async () => respuesta(200, albergueApi));
+    const gateway = crearGatewayHttp("https://api.local/", () => "token-1", fetchFn);
 
     await gateway.crear(entrada);
     await gateway.actualizar("abc123", entrada);
@@ -104,16 +100,16 @@ describe("Gateway HTTP", () => {
 
     const llamadas = fetchFn.mock.calls.map(([url, init]) => [url, init?.method]);
     expect(llamadas).toEqual([
-      ["http://api.local/api/v1/albergues", "POST"],
-      ["http://api.local/api/v1/albergues/abc123", "PUT"],
-      ["http://api.local/api/v1/albergues/abc123/estado", "PATCH"],
+      ["https://api.local/api/v1/albergues", "POST"],
+      ["https://api.local/api/v1/albergues/abc123", "PUT"],
+      ["https://api.local/api/v1/albergues/abc123/estado", "PATCH"],
     ]);
     expect(fetchFn.mock.calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer token-1" });
   });
 
   it("lista los albergues", async () => {
     const fetchFn = vi.fn(async () => respuesta(200, [albergueApi]));
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     expect(await gateway.listar()).toHaveLength(1);
   });
@@ -124,7 +120,7 @@ describe("Gateway HTTP", () => {
         detail: [{ loc: ["body", "capacidad_instalada"], msg: "Debe ser mayor a 0" }],
       })
     );
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     await expect(gateway.crear(entrada)).rejects.toMatchObject({
       status: 422,
@@ -134,7 +130,7 @@ describe("Gateway HTTP", () => {
 
   it("asocia el conflicto 409 al campo código", async () => {
     const fetchFn = vi.fn(async () => respuesta(409, {}));
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     await expect(gateway.crear(entrada)).rejects.toMatchObject({
       status: 409,
@@ -149,14 +145,14 @@ describe("Gateway HTTP", () => {
     [500, "error en el servidor"],
   ])("muestra un mensaje claro para el estado %i", async (status, texto) => {
     const fetchFn = vi.fn(async () => new Response("sin json", { status }));
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     await expect(gateway.listar()).rejects.toThrow(texto);
   });
 
   it("usa el mensaje del servidor cuando viene como texto", async () => {
     const fetchFn = vi.fn(async () => respuesta(400, { detail: "Capacidad inválida" }));
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     await expect(gateway.listar()).rejects.toThrow("Capacidad inválida");
   });
@@ -165,7 +161,7 @@ describe("Gateway HTTP", () => {
     const fetchFn = vi.fn(async () => {
       throw new TypeError("Failed to fetch");
     });
-    const gateway = crearGatewayHttp("http://api.local", () => null, fetchFn as unknown as typeof fetch);
+    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
 
     await expect(gateway.listar()).rejects.toMatchObject({ status: 0 });
   });
