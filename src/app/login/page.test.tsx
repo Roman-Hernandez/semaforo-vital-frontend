@@ -1,9 +1,29 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useRouter } from "next/navigation";
 import LoginPage from "./page";
 
+const mockPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(),
+}));
+
 describe("Inicio de sesión - Semáforo Vital", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.mocked(useRouter).mockReturnValue({
+      back: vi.fn(),
+      forward: vi.fn(),
+      refresh: vi.fn(),
+      push: mockPush,
+      replace: vi.fn(),
+      prefetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRouter>);
+  });
+
   it("muestra los campos y el botón de inicio de sesión", () => {
     render(<LoginPage />);
 
@@ -68,8 +88,20 @@ describe("Inicio de sesión - Semáforo Vital", () => {
     expect(contrasena).toHaveAttribute("type", "password");
   });
 
-  it("muestra el estado de carga y después un error genérico", async () => {
-    render(<LoginPage />);
+ it("muestra el estado de carga y después un error genérico", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({
+        detail: "No fue posible iniciar sesión",
+      }),
+    })
+  );
+
+  render(<LoginPage />);
+
+  // Aquí conservas el resto de tu prueba actual.
 
     fireEvent.change(
       screen.getByRole("textbox", {

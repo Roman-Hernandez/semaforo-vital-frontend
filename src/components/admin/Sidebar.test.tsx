@@ -8,11 +8,13 @@ vi.mock("next/navigation", () => ({
   usePathname: vi.fn(),
 }));
 
+/* eslint-disable @next/next/no-img-element */
 vi.mock("next/image", () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-    <img {...props} />
+    <img {...props} alt={props.alt ?? ""} />
   ),
 }));
+/* eslint-enable @next/next/no-img-element */
 
 describe("Menú lateral - Semáforo Vital", () => {
   it("muestra todas las opciones del menú", () => {

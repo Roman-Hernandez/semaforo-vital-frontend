@@ -4,9 +4,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SyntheticEvent } from "react";
 
 export default function LoginPage() {
+    const router = useRouter();
+
     const [correo, setCorreo] = useState("");
     const [contrasena, setContrasena] = useState("");
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
@@ -15,6 +18,7 @@ export default function LoginPage() {
     const [tipoMensaje, setTipoMensaje] = useState<
         "exito" | "error" | "info" | ""
     >("");
+
 
 
     async function handleSubmit(
@@ -29,18 +33,52 @@ export default function LoginPage() {
         setTipoMensaje("info");
 
         try {
-            // Simulación temporal de la respuesta del servidor.
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    body: JSON.stringify({
+                        email: correo.trim(),
+                        password: contrasena,
+                    }),
+                }
+            );
 
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail?.[0]?.msg ||
+                    data.detail ||
+                    "Correo o contraseña incorrectos."
+                );
+            }
+
+            if (!data.access_token) {
+                throw new Error("El servidor no devolvió el token de acceso.");
+            }
+
+            sessionStorage.setItem("access_token", data.access_token);
+
+            setMensaje("¡Inicio de sesión exitoso!");
+            setTipoMensaje("exito");
+
+            router.push("/admin");
+        } catch (error) {
             setMensaje(
-                "No fue posible iniciar sesión. Verifica tus credenciales e inténtalo nuevamente."
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible conectar con el servidor."
             );
             setTipoMensaje("error");
         } finally {
             setCargando(false);
         }
     }
-
 
     return (
         <main className="flex min-h-screen items-center justify-center bg-[#DDFBFA] p-3 sm:p-6 lg:p-10">
