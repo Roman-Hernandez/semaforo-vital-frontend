@@ -95,3 +95,13 @@ describe("Contrato compartido de paginación (paginacion.ts)", () => {
     expect(resultado.total).toBe(3);
   });
 });
+
+it("normaliza límites numéricos, fechas inválidas y filtros vacíos", () => {
+  expect(construirQueryPaginada({ page: NaN, page_size: Infinity, q: "   ", enfermedad: " " })).toBe("?page=1&page_size=20");
+  expect(construirQueryPaginada({ page: 0, page_size: -1 })).toBe("?page=1&page_size=1");
+  expect(construirQueryPaginada({ page: 2000000, page_size: 200 })).toBe("?page=1000000&page_size=100");
+  expect(construirQueryPaginada({ desde: "ayer", hasta: "9999-12-31", activa: false })).toBe("?page=1&page_size=20&activa=false");
+  expect(construirQueryPaginada({ desde: "2026-11-01" })).toContain("desde=2026-11-01");
+  expect(construirQueryPaginada({ hasta: "2026-11-17" })).toContain("hasta=2026-11-17");
+  expect(construirQueryPaginada({ enfermedad: " IRA " }, { permitirFechas: false, permitirQ: false })).toBe("?page=1&page_size=20&enfermedad=IRA");
+});

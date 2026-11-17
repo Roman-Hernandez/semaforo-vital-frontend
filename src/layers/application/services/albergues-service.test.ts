@@ -206,3 +206,36 @@ describe("Gateway HTTP de albergues (/api/v1/albergues)", () => {
     expect(registros.intervenciones.items).toHaveLength(1);
   });
 });
+
+it("consulta cada historial por separado, conserva desconocidos y codifica identificadores", async () => {
+  const fetchFn = vi.fn<typeof fetch>(async (url) => {
+    if (String(url).includes("condiciones")) return respuesta(200, envolverPagina([{ _id: "san", fecha: "2026-11-17", agua_potable_disponible: false, banos_disponibles: 0, estado_higiene: "Crítico", estado_saneamiento: "Crítico" }]));
+    if (String(url).includes("enfermedades")) return respuesta(200, envolverPagina([{ fecha: "2026-11-17", enfermedad: "IRA", cantidad_casos_activos: 0 }]));
+    if (String(url).includes("intervenciones")) return respuesta(200, envolverPagina([{ fecha_intervencion: "2026-11-17", tipo_intervencion: "Agua", descripcion: "Revisión" }]));
+    return respuesta(200, albergueApi);
+  });
+  const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn);
+  expect((await gateway.obtener!("id/con espacio")).id).toBe("abc123");
+  expect(fetchFn.mock.calls[0][0]).toContain("id%2Fcon%20espacio");
+  expect((await gateway.listarCondiciones!("id")).items[0]).toMatchObject({ id: "san", aguaPotableDisponible: false, observaciones: "" });
+  expect((await gateway.listarEnfermedades!("id")).items[0]).toMatchObject({ id: "2026-11-17-IRA", cantidadRecuperados: null });
+  expect((await gateway.listarIntervenciones!("id")).items[0]).toMatchObject({ id: "2026-11-17-Agua", observaciones: "" });
+  const all = await gateway.consultarRegistros!("id");
+  expect(all.condiciones.items).toHaveLength(1);
+  expect(fetchFn.mock.calls.at(-1)?.[0]).toContain("page_size=10");
+});
+
+it.each(["verde", "amarillo", "rojo", "alto", "bajo", "medio", "critico", null] as const)("adapta riesgo %s conservando campos opcionales", (nivel) => {
+  const row = desdeApi({ ...albergueApi, id: undefined, _id: "mongo", nivel_riesgo: nivel, administrador: undefined, poblacion_actual: undefined, created_at: undefined });
+  const niveles = { verde: "bajo", amarillo: "medio", rojo: "critico", alto: "alto", bajo: "bajo", medio: "medio", critico: "critico" };
+  expect(row.riesgo).toBe(nivel === null ? null : niveles[nivel]);
+  expect(row.poblacionActual).toBeNull();
+  expect(row.administrador).toBeNull();
+  expect(row.creadoEn).toBe("");
+});
+
+it("traduce errores de validación del servidor a campos del formulario", async () => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(422, { detail: [{ loc: ["body", "nombre"], msg: "Nombre obligatorio", type: "value_error" }, { loc: ["body", "ubicacion", "municipio"], msg: "Municipio inválido", type: "value_error" }] }));
+  const gateway = crearGatewayHttp("https://api.local", () => "token", fetchFn);
+  await expect(gateway.crear(entrada)).rejects.toMatchObject({ status: 422, campos: expect.objectContaining({ nombre: expect.any(String) }) });
+});

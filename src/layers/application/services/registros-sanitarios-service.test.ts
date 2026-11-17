@@ -154,3 +154,26 @@ describe("Servicios de condiciones sanitarias y enfermedades (/api/v1/mi-albergu
     );
   });
 });
+
+it.each([undefined, null, -1, 1.5, 0])("conserva recuperados desconocidos y solo envía enteros no negativos: %s", async (cantidadRecuperados) => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(200, { _id: "caso", fecha: "2026-11-17", enfermedad: "IRA", cantidad_casos_activos: 0 }));
+  const gateway = crearEnfermedadesGateway(crearClienteApi("https://api.local", () => null, fetchFn));
+  const created = await gateway.crear({ fecha: "2026-11-17", enfermedad: " IRA ", cantidadCasosActivos: 0, cantidadRecuperados, observaciones: " " });
+  const body = JSON.parse(String(fetchFn.mock.calls[0][1]?.body));
+  expect(body.enfermedad).toBe("IRA");
+  expect(body).not.toHaveProperty("observaciones");
+  if (cantidadRecuperados === 0) expect(body.cantidad_recuperados).toBe(0);
+  else expect(body).not.toHaveProperty("cantidad_recuperados");
+  expect(created.cantidadRecuperados).toBeNull();
+  expect(created.id).toBe("caso");
+});
+
+it("acepta condiciones sin identificador legado y sin observaciones opcionales", async () => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(200, { fecha: "2026-11-17", agua_potable_disponible: false, banos_disponibles: 0, estado_higiene: "Crítico", estado_saneamiento: "Crítico" }));
+  const gateway = crearCondicionesSanitariasGateway(crearClienteApi("https://api.local", () => null, fetchFn));
+  const created = await gateway.crear({ fecha: "2026-11-17", aguaPotableDisponible: false, banosDisponibles: 0, estadoHigiene: "Crítico", estadoSaneamiento: "Crítico" });
+  expect(created.id).toBe("2026-11-17");
+  expect(created.otrosRecursosSanitarios).toEqual([]);
+  expect(created.observaciones).toBe("");
+  expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).not.toHaveProperty("observaciones");
+});

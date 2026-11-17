@@ -347,9 +347,7 @@ export function AlberguesLista({
                   </td>
                   <td className="px-3 py-3 font-medium text-[#164652]">
                     <span className="font-semibold">
-                      {albergue.poblacionActual===null
-                        ? "Sin dato"
-                        :albergue.poblacionActual}
+                      {albergue.poblacionActual ?? "Sin dato"}
                     </span>
                     <span className="text-[#718895]"> · </span>
                     <span>{albergue.capacidadInstalada} personas</span>
@@ -427,9 +425,7 @@ export function AlberguesLista({
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Población</dt>
                 <dd className="text-[#53636B]">
-                  {albergue.poblacionActual===null
-                    ? "Sin dato"
-                    :albergue.poblacionActual}{" "}
+                  {albergue.poblacionActual ?? "Sin dato"}{" "}
                   / {albergue.capacidadInstalada} personas
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Riesgo</dt>

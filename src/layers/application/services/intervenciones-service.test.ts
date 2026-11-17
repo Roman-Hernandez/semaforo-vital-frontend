@@ -106,3 +106,17 @@ describe("Servicio de intervenciones (/api/v1/mi-albergue/intervenciones)", () =
     expect(fetchFn.mock.calls[2][1]?.method).toBe("PUT");
   });
 });
+
+it.each(["registrar", "actualizar"] as const)("traduce validación al %s una intervención", async (method) => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(422, { detail: [{ loc: ["body", "tipo_intervencion"], msg: "Tipo obligatorio", type: "value_error" }] }));
+  const gateway = crearGatewayHttp(crearClienteApi("https://api.local", () => null, fetchFn));
+  const entrada = { fecha: "2026-11-17", tipo: "Higiene", descripcion: "Entrega", observaciones: "" };
+  const pending = method === "registrar" ? gateway.registrar(entrada) : gateway.actualizar!("a/b", entrada);
+  await expect(pending).rejects.toMatchObject({ status: 422, campos: { tipo: expect.any(String) } });
+});
+
+it("conserva identificadores legados y campos opcionales de intervenciones", () => {
+  expect(desdeApi({ _id: "mongo-id", fecha_intervencion: "2026-11-17", tipo_intervencion: "Agua", descripcion: "Revisión" })).toMatchObject({ id: "mongo-id", observaciones: "", registradoEn: "" });
+  expect(desdeApi({ fecha_intervencion: "2026-11-17", tipo_intervencion: "Agua", descripcion: "Revisión" }).id).toBe("2026-11-17-Agua");
+  expect(haciaApi({ fecha: "2026-11-17", tipo: "Agua", descripcion: "Revisión", observaciones: "  Entrega  " })).toHaveProperty("observaciones", "Entrega");
+});

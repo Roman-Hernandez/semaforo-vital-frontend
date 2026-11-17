@@ -400,17 +400,11 @@ export function GestionAdministradoresPage({
               :null;
 
             function nombreAlbergueAsignado() {
-              if(admin.albergueNombre) {
-                return `${admin.albergueNombre}${admin.codigoAlbergue? ` (${admin.codigoAlbergue})`:""
-                  }`;
-              }
-              if(fallbackOpciones) {
-                return `${fallbackOpciones.nombre}${fallbackOpciones.codigo
-                    ? ` (${fallbackOpciones.codigo})`
-                    :""
-                  }`;
-              }
-              return admin.albergueId??"Sin asignar";
+              const nombre = admin.albergueNombre ?? fallbackOpciones?.nombre;
+              const codigo = admin.albergueNombre ? admin.codigoAlbergue : fallbackOpciones?.codigo;
+              if (!nombre) return admin.albergueId ?? "Sin asignar";
+              const sufijo = codigo ? ` (${codigo})` : "";
+              return nombre + sufijo;
             }
 
             const textoAlbergue=nombreAlbergueAsignado();

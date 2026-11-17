@@ -217,3 +217,25 @@ describe("Servicio de mi albergue (/api/v1/mi-albergue)", () => {
     expect(historial.total).toBe(90);
   });
 });
+
+it("consulta detalle, actualiza ficha y conserva ausencia de datos en dashboard y población", async () => {
+  const albergue = { id: "a1", codigo_albergue: "ALB-1", nombre: "Esperanza", ubicacion: { departamento: "Risaralda", municipio: "Pereira", direccion: "Calle 1", coordenadas: { type: "Point", coordinates: [-75.69, 4.81] } }, capacidad_instalada: 100, activo: true };
+  const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
+    if (init?.method === "PATCH") return respuesta(200, albergue);
+    if (String(url).includes("dashboard")) return respuesta(200, { albergue, administrador: {}, resumen_casos: [], intervenciones: [], predicciones: [], ultima_actualizacion: null, alertas: { cantidad: 0, por_nivel_riesgo: { verde: 0, amarillo: 0, rojo: 0 } } });
+    if (String(url).endsWith("poblacion")) return respuesta(200, { poblacion_actual: null, porcentaje_ocupacion: null, cupos_disponibles: null, ultimo_registro: null });
+    return respuesta(200, { albergue, administrador: { id: "admin" }, poblacion_actual: 0 });
+  });
+  const gateway = crearMiAlbergueGateway(crearClienteApi("https://api.local", () => null, fetchFn));
+  expect((await gateway.consultar()).albergue.poblacionActual).toBe(0);
+  await gateway.actualizar({ nombre: "Esperanza", departamento: "Risaralda", municipio: "Pereira", direccion: "Calle 2", latitud: 4.81, longitud: -75.69, capacidadInstalada: 120, activo: true });
+  expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toMatchObject({ capacidad_instalada: 120, ubicacion: { direccion: "Calle 2" } });
+  const d = await gateway.consultarDashboard(10);
+  expect(d.semaforoVital).toBeNull();
+  expect(d.casosDiarios).toBeNull();
+  expect(d.condicionesSanitarias).toBeNull();
+  expect(d.analisisIa).toBeNull();
+  expect(d.predicciones).toEqual([]);
+  expect(d.poblacionActual).toBeNull();
+  expect((await gateway.consultarPoblacion()).ultimoRegistro).toBeNull();
+});

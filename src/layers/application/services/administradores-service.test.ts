@@ -123,3 +123,18 @@ describe("Servicio de administradores (/api/v1/administradores)", () => {
     expect(JSON.parse(String(llamadas[2][2]))).toEqual({ albergue_id: null });
   });
 });
+
+it("actualiza todos los campos sin enviar campos omitidos y crea sin asignación", async () => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(200, { id: "a/b", email: "ana@test.com", role: "administrador_albergue", active: true, nombre: "Ana", apellido: "Ruiz", albergue_id: null }));
+  const gateway = crearAdministradoresGateway(crearClienteApi("https://api.local", () => null, fetchFn));
+  const created = await gateway.crear({ nombre: " Ana ", apellido: " Ruiz ", email: " ana@test.com ", password: "clave" });
+  expect(created.albergueNombre).toBeNull();
+  expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).not.toHaveProperty("albergue_id");
+  await gateway.actualizar("a/b", { nombre: "Ana", apellido: " Ruiz ", email: " ana@test.com ", active: false, password: "nueva" });
+  expect(fetchFn.mock.calls[1][0]).toContain("a%2Fb");
+  expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ nombre: "Ana", apellido: "Ruiz", email: "ana@test.com", active: false, password: "nueva" });
+  await gateway.actualizar("a/b", {});
+  expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({});
+  await gateway.asignarAlbergue("a/b", "albergue");
+  expect(JSON.parse(String(fetchFn.mock.calls[3][1]?.body))).toEqual({ albergue_id: "albergue" });
+});
