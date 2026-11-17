@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect,useMemo,useRef,useState } from "react";
+import { RotateCcw,Search,ZoomIn,ZoomOut } from "lucide-react";
 
 export interface MarcadorAlbergueMapa {
   readonly id: string;
@@ -10,9 +10,9 @@ export interface MarcadorAlbergueMapa {
   readonly direccion?: string;
   readonly latitud: number;
   readonly longitud: number;
-  readonly nivelRiesgo?: "verde" | "amarillo" | "rojo" | null;
+  readonly nivelRiesgo?: "verde"|"amarillo"|"rojo"|null;
   readonly capacidadInstalada?: number;
-  readonly poblacionActual?: number | null;
+  readonly poblacionActual?: number|null;
 }
 
 interface MapaAlberguesProps {
@@ -23,56 +23,56 @@ interface MapaAlberguesProps {
   readonly alturaClase?: string;
 }
 
-const COLOR_NIVEL: Record<string, string> = {
+const COLOR_NIVEL: Record<string,string>={
   verde: "#168052",
   amarillo: "#D48806",
   rojo: "#C53030",
 };
 
-const CENTRO_INICIAL: [number, number] = [4.8143, -75.6946];
+const CENTRO_INICIAL: [number,number]=[4.8143,-75.6946];
 
 export function MapaAlbergues({
   albergues,
   totalAlbergues,
   paginaActual,
   totalPaginas,
-  alturaClase = "h-[480px]",
+  alturaClase="h-[480px]",
 }: MapaAlberguesProps) {
-  const contenedorRef = useRef<HTMLDivElement>(null);
-  const leafletRef = useRef<typeof import("leaflet") | null>(null);
-  const mapaRef = useRef<import("leaflet").Map | null>(null);
-  const grupoRef = useRef<import("leaflet").FeatureGroup | null>(null);
-  const marcadoresRef = useRef<Map<string, import("leaflet").Marker>>(new Map());
-  const ajusteInicialHechoRef = useRef(false);
+  const contenedorRef=useRef<HTMLDivElement>(null);
+  const leafletRef=useRef<typeof import("leaflet")|null>(null);
+  const mapaRef=useRef<import("leaflet").Map|null>(null);
+  const grupoRef=useRef<import("leaflet").FeatureGroup|null>(null);
+  const marcadoresRef=useRef<Map<string,import("leaflet").Marker>>(new Map());
+  const ajusteInicialHechoRef=useRef(false);
 
-  const [mapaListo, setMapaListo] = useState(false);
-  const [busquedaMapa, setBusquedaMapa] = useState("");
-  const [seleccionadoId, setSeleccionadoId] = useState<string>("");
+  const [mapaListo,setMapaListo]=useState(false);
+  const [busquedaMapa,setBusquedaMapa]=useState("");
+  const [seleccionadoId,setSeleccionadoId]=useState<string>("");
 
-  const alberguesValidos = useMemo(
+  const alberguesValidos=useMemo(
     () =>
       albergues.filter(
-        (alb) => Number.isFinite(alb.latitud) && Number.isFinite(alb.longitud)
+        (alb) => Number.isFinite(alb.latitud)&&Number.isFinite(alb.longitud)
       ),
     [albergues]
   );
 
-  const opcionesSelect = useMemo(() => {
-    const termino = busquedaMapa.trim().toLowerCase();
-    if (!termino) return alberguesValidos;
+  const opcionesSelect=useMemo(() => {
+    const termino=busquedaMapa.trim().toLowerCase();
+    if(!termino) return alberguesValidos;
     return alberguesValidos.filter(
       (alb) =>
-        alb.nombre.toLowerCase().includes(termino) ||
+        alb.nombre.toLowerCase().includes(termino)||
         alb.municipio.toLowerCase().includes(termino)
     );
-  }, [alberguesValidos, busquedaMapa]);
+  },[alberguesValidos,busquedaMapa]);
 
-  const claveAlbergues = useMemo(
+  const claveAlbergues=useMemo(
     () =>
       alberguesValidos
         .map(
           (a) =>
-            `${a.id}:${a.latitud}:${a.longitud}:${a.nivelRiesgo ?? ""}:${a.poblacionActual ?? ""}`
+            `${a.id}:${a.latitud}:${a.longitud}:${a.nivelRiesgo??""}:${a.poblacionActual??""}`
         )
         .join("|"),
     [alberguesValidos]
@@ -80,19 +80,19 @@ export function MapaAlbergues({
 
   // 1. Inicializar la instancia de Leaflet UNA SOLA VEZ al montar
   useEffect(() => {
-    const contenedor = contenedorRef.current;
-    const mapaMarcadores = marcadoresRef.current;
-    if (!contenedor || typeof window === "undefined") return;
+    const contenedor=contenedorRef.current;
+    const mapaMarcadores=marcadoresRef.current;
+    if(!contenedor||typeof window==="undefined") return;
 
-    let cancelado = false;
+    let cancelado=false;
 
     import("leaflet")
       .then((L) => {
-        if (cancelado || !contenedorRef.current || mapaRef.current) return;
+        if(cancelado||!contenedorRef.current||mapaRef.current) return;
 
-        leafletRef.current = L;
+        leafletRef.current=L;
 
-        const mapa = L.map(contenedorRef.current, {
+        const mapa=L.map(contenedorRef.current,{
           center: CENTRO_INICIAL,
           zoom: 12,
           scrollWheelZoom: true,
@@ -103,7 +103,7 @@ export function MapaAlbergues({
           wheelPxPerZoomLevel: 80,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
           attribution:
             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
           maxZoom: 19,
@@ -111,9 +111,9 @@ export function MapaAlbergues({
           keepBuffer: 4,
         }).addTo(mapa);
 
-        const grupo = L.featureGroup().addTo(mapa);
-        mapaRef.current = mapa;
-        grupoRef.current = grupo;
+        const grupo=L.featureGroup().addTo(mapa);
+        mapaRef.current=mapa;
+        grupoRef.current=grupo;
         setMapaListo(true);
       })
       .catch(() => {
@@ -121,102 +121,101 @@ export function MapaAlbergues({
       });
 
     return () => {
-      cancelado = true;
+      cancelado=true;
       mapaMarcadores.clear();
-      if (mapaRef.current) {
+      if(mapaRef.current) {
         mapaRef.current.remove();
-        mapaRef.current = null;
+        mapaRef.current=null;
       }
-      grupoRef.current = null;
+      grupoRef.current=null;
     };
-  }, []);
+  },[]);
 
   // 2. Sincronizar marcadores sin recrear el mapa
   useEffect(() => {
-    const L = leafletRef.current;
-    const mapa = mapaRef.current;
-    const grupo = grupoRef.current;
-    if (!mapaListo || !L || !mapa || !grupo) return;
+    const L=leafletRef.current;
+    const mapa=mapaRef.current;
+    const grupo=grupoRef.current;
+    if(!mapaListo||!L||!mapa||!grupo) return;
 
     grupo.clearLayers();
     marcadoresRef.current.clear();
 
-    for (const alb of alberguesValidos) {
-      const color = alb.nivelRiesgo
-        ? COLOR_NIVEL[alb.nivelRiesgo] ?? "#047270"
-        : "#047270";
+    for(const alb of alberguesValidos) {
+      const color=alb.nivelRiesgo
+        ? COLOR_NIVEL[alb.nivelRiesgo]??"#047270"
+        :"#047270";
 
-      const icono = L.divIcon({
+      const icono=L.divIcon({
         className: "",
         html: `<span style="display:block;width:20px;height:20px;border-radius:9999px;background:${color};border:3px solid #ffffff;box-shadow:0 2px 6px rgba(10,37,42,0.35);cursor:pointer;"></span>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-        popupAnchor: [0, -10],
+        iconSize: [20,20],
+        iconAnchor: [10,10],
+        popupAnchor: [0,-10],
       });
 
-      const marcador = L.marker([alb.latitud, alb.longitud], {
+      const marcador=L.marker([alb.latitud,alb.longitud],{
         icon: icono,
         title: alb.nombre,
       });
 
-      const ocupacionTexto =
-        alb.poblacionActual !== undefined &&
-        alb.poblacionActual !== null &&
-        alb.capacidadInstalada
+      const ocupacionTexto=
+        alb.poblacionActual!==undefined&&
+          alb.poblacionActual!==null&&
+          alb.capacidadInstalada
           ? `<br/><span style="color:#375257;font-size:12px;">Ocupación: <strong>${alb.poblacionActual} / ${alb.capacidadInstalada}</strong> personas</span>`
-          : "";
+          :"";
 
       marcador.bindPopup(
         `<div style="font-family:Arial,sans-serif;min-width:190px;line-height:1.45;">
           <strong style="color:#0A252A;font-size:13px;">${alb.nombre}</strong>
-          <br/><span style="color:#4C666B;font-size:12px;">${alb.municipio}${
-            alb.direccion ? ` · ${alb.direccion}` : ""
-          }</span>
+          <br/><span style="color:#4C666B;font-size:12px;">${alb.municipio}${alb.direccion? ` · ${alb.direccion}`:""
+        }</span>
           ${ocupacionTexto}
         </div>`
       );
 
-      marcador.on("click", () => {
+      marcador.on("click",() => {
         setSeleccionadoId(alb.id);
-        mapa.setView([alb.latitud, alb.longitud], Math.max(mapa.getZoom(), 15), {
+        mapa.setView([alb.latitud,alb.longitud],Math.max(mapa.getZoom(),15),{
           animate: true,
         });
       });
 
       marcador.addTo(grupo);
-      marcadoresRef.current.set(alb.id, marcador);
+      marcadoresRef.current.set(alb.id,marcador);
     }
 
-    if (!ajusteInicialHechoRef.current && alberguesValidos.length > 0) {
-      ajusteInicialHechoRef.current = true;
-      if (alberguesValidos.length > 1) {
-        mapa.fitBounds(grupo.getBounds().pad(0.25), { animate: false });
+    if(!ajusteInicialHechoRef.current&&alberguesValidos.length>0) {
+      ajusteInicialHechoRef.current=true;
+      if(alberguesValidos.length>1) {
+        mapa.fitBounds(grupo.getBounds().pad(0.25),{ animate: false });
       } else {
         mapa.setView(
-          [alberguesValidos[0].latitud, alberguesValidos[0].longitud],
+          [alberguesValidos[0].latitud,alberguesValidos[0].longitud],
           14,
           { animate: false }
         );
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapaListo, claveAlbergues]);
+  },[mapaListo,claveAlbergues]);
 
   function seleccionarAlbergue(id: string) {
     setSeleccionadoId(id);
-    const mapa = mapaRef.current;
-    if (!mapa) return;
+    const mapa=mapaRef.current;
+    if(!mapa) return;
 
-    if (!id) {
+    if(!id) {
       restablecerVista();
       return;
     }
 
-    const alb = alberguesValidos.find((item) => item.id === id);
-    const marcador = marcadoresRef.current.get(id);
-    if (!alb) return;
+    const alb=alberguesValidos.find((item) => item.id===id);
+    const marcador=marcadoresRef.current.get(id);
+    if(!alb) return;
 
-    mapa.setView([alb.latitud, alb.longitud], 16, { animate: true });
+    mapa.setView([alb.latitud,alb.longitud],16,{ animate: true });
     marcador?.openPopup();
   }
 
@@ -230,20 +229,20 @@ export function MapaAlbergues({
 
   function restablecerVista() {
     setSeleccionadoId("");
-    const mapa = mapaRef.current;
-    const grupo = grupoRef.current;
-    if (!mapa) return;
+    const mapa=mapaRef.current;
+    const grupo=grupoRef.current;
+    if(!mapa) return;
     mapa.closePopup();
-    if (grupo && alberguesValidos.length > 1) {
-      mapa.fitBounds(grupo.getBounds().pad(0.25), { animate: true });
-    } else if (alberguesValidos.length === 1) {
+    if(grupo&&alberguesValidos.length>1) {
+      mapa.fitBounds(grupo.getBounds().pad(0.25),{ animate: true });
+    } else if(alberguesValidos.length===1) {
       mapa.setView(
-        [alberguesValidos[0].latitud, alberguesValidos[0].longitud],
+        [alberguesValidos[0].latitud,alberguesValidos[0].longitud],
         14,
         { animate: true }
       );
     } else {
-      mapa.setView(CENTRO_INICIAL, 12, { animate: true });
+      mapa.setView(CENTRO_INICIAL,12,{ animate: true });
     }
   }
 
@@ -341,9 +340,9 @@ export function MapaAlbergues({
         </div>
       </div>
 
-      <div
+      <section
         ref={contenedorRef}
-        role="region"
+
         aria-label="Mapa interactivo de albergues"
         className={`w-full bg-[#EAF2F1] ${alturaClase}`}
       />
@@ -356,12 +355,12 @@ export function MapaAlbergues({
           </strong>{" "}
           de{" "}
           <strong className="font-semibold text-[#0A252A]">
-            {totalAlbergues ?? alberguesValidos.length}
+            {totalAlbergues??alberguesValidos.length}
           </strong>{" "}
           albergues habilitados
-          {paginaActual && totalPaginas && totalPaginas > 0
+          {paginaActual&&totalPaginas&&totalPaginas>0
             ? ` (página ${paginaActual} de ${totalPaginas})`
-            : ""}
+            :""}
           .
         </p>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useState,type SyntheticEvent } from "react";
 import {
   CheckCircle2,
   CircleAlert,
@@ -42,35 +42,34 @@ export interface IntervencionesPageProps {
   readonly hoy?: string;
 }
 
-const CAMPOS_ORDEN: CampoIntervencion[] = [
+const CAMPOS_ORDEN: CampoIntervencion[]=[
   "tipo",
   "descripcion",
   "fecha",
   "observaciones",
 ];
 
-const CONTROL_BASE =
+const CONTROL_BASE=
   "w-full border bg-white px-3 text-sm text-[#203B45] outline-none transition placeholder:text-[#9AABB3] focus:ring-2";
 
 function claseControl(error?: string): string {
-  return `${CONTROL_BASE} ${
-    error
+  return `${CONTROL_BASE} ${error
       ? "border-[#D64545] focus:ring-[#D64545]/15"
-      : "border-[#DCE5EA] focus:border-[#008994] focus:ring-[#008994]/15"
-  }`;
+      :"border-[#DCE5EA] focus:border-[#008994] focus:ring-[#008994]/15"
+    }`;
 }
 
 function enfocarFormulario() {
   document
     .getElementById("nueva-intervencion")
-    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    ?.scrollIntoView({ behavior: "smooth",block: "start" });
   document.getElementById("intervencion-tipo")?.focus({ preventScroll: true });
 }
 
 function Campo({
   id,
   etiqueta,
-  obligatorio = false,
+  obligatorio=false,
   error,
   ayuda,
   children,
@@ -89,7 +88,7 @@ function Campo({
         className="mb-1.5 block text-xs font-semibold text-[#164652]"
       >
         <span>{etiqueta}</span>
-        {obligatorio && (
+        {obligatorio&&(
           <span aria-hidden="true" className="text-[#D64545]">
             {" "}
             *
@@ -97,7 +96,7 @@ function Campo({
         )}
       </label>
       {children}
-      {error && (
+      {error&&(
         <p
           id={`${id}-error`}
           className="mt-1 flex items-start gap-1 text-xs text-[#D64545]"
@@ -106,7 +105,7 @@ function Campo({
           <span>{error}</span>
         </p>
       )}
-      {!error && ayuda && (
+      {!error&&ayuda&&(
         <p id={`${id}-ayuda`} className="mt-1 text-xs text-[#8297A1]">
           {ayuda}
         </p>
@@ -122,34 +121,34 @@ function FormularioIntervencion({
   onCancelarEdicion,
 }: {
   readonly hoy: string;
-  readonly editando: Intervencion | null;
+  readonly editando: Intervencion|null;
   readonly onGuardar: (
     entrada: IntervencionEntrada,
-    idEdicion: string | null
+    idEdicion: string|null
   ) => Promise<void>;
   readonly onCancelarEdicion: () => void;
 }) {
-  const [valores, setValores] = useState<IntervencionEntrada>(() =>
+  const [valores,setValores]=useState<IntervencionEntrada>(() =>
     editando
       ? {
-          tipo: editando.tipo,
-          descripcion: editando.descripcion,
-          fecha: editando.fecha,
-          observaciones: editando.observaciones,
-        }
-      : INTERVENCION_VACIA
+        tipo: editando.tipo,
+        descripcion: editando.descripcion,
+        fecha: editando.fecha,
+        observaciones: editando.observaciones,
+      }
+      :INTERVENCION_VACIA
   );
-  const [errores, setErrores] = useState<ErroresIntervencion>({});
-  const [intentado, setIntentado] = useState(false);
-  const [guardando, setGuardando] = useState(false);
-  const [errorServidor, setErrorServidor] = useState("");
+  const [errores,setErrores]=useState<ErroresIntervencion>({});
+  const [intentado,setIntentado]=useState(false);
+  const [guardando,setGuardando]=useState(false);
+  const [errorServidor,setErrorServidor]=useState("");
 
-  function cambiar(campo: CampoIntervencion, valor: string) {
-    const siguientes = { ...valores, [campo]: valor };
+  function cambiar(campo: CampoIntervencion,valor: string) {
+    const siguientes={ ...valores,[campo]: valor };
     setValores(siguientes);
 
-    if (intentado) {
-      setErrores(validarIntervencion(siguientes, hoy));
+    if(intentado) {
+      setErrores(validarIntervencion(siguientes,hoy));
     }
   }
 
@@ -162,30 +161,30 @@ function FormularioIntervencion({
   }
 
   function atributos(campo: CampoIntervencion) {
-    const id = `intervencion-${campo}`;
-    const error = errores[campo];
+    const id=`intervencion-${campo}`;
+    const error=errores[campo];
 
     return {
       id,
       name: campo,
-      "aria-invalid": error ? true : undefined,
-      "aria-describedby": error ? `${id}-error` : undefined,
+      "aria-invalid": error? true:undefined,
+      "aria-describedby": error? `${id}-error`:undefined,
     };
   }
 
   async function enviar(evento: SyntheticEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (guardando) return;
+    if(guardando) return;
 
     setIntentado(true);
     setErrorServidor("");
 
-    const encontrados = validarIntervencion(valores, hoy);
+    const encontrados=validarIntervencion(valores,hoy);
     setErrores(encontrados);
 
-    const primero = CAMPOS_ORDEN.find((campo) => encontrados[campo]);
+    const primero=CAMPOS_ORDEN.find((campo) => encontrados[campo]);
 
-    if (primero) {
+    if(primero) {
       document.getElementById(`intervencion-${primero}`)?.focus();
       return;
     }
@@ -193,10 +192,10 @@ function FormularioIntervencion({
     setGuardando(true);
 
     try {
-      await onGuardar(valores, editando?.id ?? null);
+      await onGuardar(valores,editando?.id??null);
       limpiar();
-    } catch (error) {
-      if (error instanceof ApiError) {
+    } catch(error) {
+      if(error instanceof ApiError) {
         setErrores(error.campos);
         setErrorServidor(error.message);
       } else {
@@ -209,8 +208,14 @@ function FormularioIntervencion({
     }
   }
 
-  const hayErroresCampo =
-    intentado && Object.keys(errores).length > 0 && !errorServidor;
+  const hayErroresCampo=
+    intentado&&Object.keys(errores).length>0&&!errorServidor;
+
+  function textoGuardar() {
+    if(guardando) { return "Guardando…"; }
+    if(editando) { return "Guardar cambios"; }
+    return "Guardar intervención";
+  }
 
   return (
     <aside
@@ -224,7 +229,7 @@ function FormularioIntervencion({
       >
         <ClipboardPlus size={18} aria-hidden="true" className="text-[#008994]" />
         <span>
-          {editando ? "Editar intervención" : "Nueva intervención"}
+          {editando? "Editar intervención":"Nueva intervención"}
         </span>
       </h2>
 
@@ -234,7 +239,7 @@ function FormularioIntervencion({
         aria-busy={guardando}
         className="mt-4 space-y-4"
       >
-        {hayErroresCampo && (
+        {hayErroresCampo&&(
           <p
             role="alert"
             className="bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]"
@@ -243,7 +248,7 @@ function FormularioIntervencion({
           </p>
         )}
 
-        {errorServidor && (
+        {errorServidor&&(
           <p
             role="alert"
             className="flex items-start gap-2 bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]"
@@ -268,7 +273,7 @@ function FormularioIntervencion({
             <select
               {...atributos("tipo")}
               value={valores.tipo}
-              onChange={(e) => cambiar("tipo", e.target.value)}
+              onChange={(e) => cambiar("tipo",e.target.value)}
               className={`${claseControl(errores.tipo)} h-10`}
             >
               <option value="">Selecciona una categoría</option>
@@ -291,7 +296,7 @@ function FormularioIntervencion({
               type="date"
               value={valores.fecha}
               max={hoy}
-              onChange={(e) => cambiar("fecha", e.target.value)}
+              onChange={(e) => cambiar("fecha",e.target.value)}
               className={`${claseControl(errores.fecha)} h-10`}
             />
           </Campo>
@@ -307,10 +312,10 @@ function FormularioIntervencion({
               <textarea
                 {...atributos("descripcion")}
                 value={valores.descripcion}
-                onChange={(e) => cambiar("descripcion", e.target.value)}
+                onChange={(e) => cambiar("descripcion",e.target.value)}
                 placeholder="Describe la acción sanitaria realizada y su alcance…"
                 rows={3}
-                maxLength={DESCRIPCION_MAXIMA + 50}
+                maxLength={DESCRIPCION_MAXIMA+50}
                 className={`${claseControl(errores.descripcion)} resize-y py-2`}
               />
             </Campo>
@@ -326,7 +331,7 @@ function FormularioIntervencion({
               <textarea
                 {...atributos("observaciones")}
                 value={valores.observaciones}
-                onChange={(e) => cambiar("observaciones", e.target.value)}
+                onChange={(e) => cambiar("observaciones",e.target.value)}
                 placeholder="Información adicional (opcional)"
                 rows={2}
                 className={`${claseControl(errores.observaciones)} resize-y py-2`}
@@ -341,7 +346,7 @@ function FormularioIntervencion({
             disabled={guardando}
             className="inline-flex h-10 items-center justify-center gap-2 bg-[#008994] px-5 text-xs font-semibold text-white transition hover:bg-[#00747E] disabled:cursor-wait disabled:opacity-80"
           >
-            {guardando && (
+            {guardando&&(
               <LoaderCircle
                 size={14}
                 aria-hidden="true"
@@ -349,11 +354,7 @@ function FormularioIntervencion({
               />
             )}
             <span>
-              {guardando
-                ? "Guardando…"
-                : editando
-                ? "Guardar cambios"
-                : "Guardar intervención"}
+              {textoGuardar()}
             </span>
           </button>
           <button
@@ -373,7 +374,7 @@ function FormularioIntervencion({
 function EsqueletoListado() {
   return (
     <span aria-hidden="true" className="block divide-y divide-[#EEF2F4]">
-      {[1, 2, 3, 4].map((fila) => (
+      {[1,2,3,4].map((fila) => (
         <span
           key={fila}
           className="flex animate-pulse items-center gap-4 px-4 py-4"
@@ -397,14 +398,14 @@ function TipoBadge({ tipo }: { readonly tipo: string }) {
 
 export function IntervencionesPage({
   gateway: gatewayInyectado,
-  hoy = hoyEnBogota(),
+  hoy=hoyEnBogota(),
 }: IntervencionesPageProps) {
-  const [gateway] = useState<IntervencionesGateway>(
-    () => gatewayInyectado ?? obtenerIntervencionesGateway()
+  const [gateway]=useState<IntervencionesGateway>(
+    () => gatewayInyectado??obtenerIntervencionesGateway()
   );
 
-  const [editando, setEditando] = useState<Intervencion | null>(null);
-  const [aviso, setAviso] = useState("");
+  const [editando,setEditando]=useState<Intervencion|null>(null);
+  const [aviso,setAviso]=useState("");
 
   const {
     datos: pagina,
@@ -421,26 +422,26 @@ export function IntervencionesPage({
     setHasta,
     limpiarFiltros,
     recargar,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) => gateway.listar(consulta),
     sincronizarUrl: true,
     mensajeErrorDefecto: "Verifica tu conexión e inténtalo nuevamente.",
   });
 
-  const hayFiltros = Boolean(q.trim() || desde || hasta);
+  const hayFiltros=Boolean(q.trim()||desde||hasta);
 
   async function guardar(
     entrada: IntervencionEntrada,
-    idEdicion: string | null
+    idEdicion: string|null
   ) {
     setAviso("");
-    if (idEdicion && gateway.actualizar) {
-      const actualizada = await gateway.actualizar(idEdicion, entrada);
+    if(idEdicion&&gateway.actualizar) {
+      const actualizada=await gateway.actualizar(idEdicion,entrada);
       setAviso(
         `La intervención de tipo “${actualizada.tipo}” se actualizó correctamente.`
       );
     } else {
-      const creada = await gateway.registrar(entrada);
+      const creada=await gateway.registrar(entrada);
       setAviso(
         `La intervención de tipo “${creada.tipo}” se registró correctamente.`
       );
@@ -450,7 +451,7 @@ export function IntervencionesPage({
   }
 
   function renderizarContenidoTabla() {
-    if (cargando) {
+    if(cargando) {
       return (
         <output className="block" aria-label="Cargando intervenciones">
           <span className="sr-only">Cargando intervenciones…</span>
@@ -459,7 +460,7 @@ export function IntervencionesPage({
       );
     }
 
-    if (mensajeError) {
+    if(mensajeError) {
       return (
         <div
           role="alert"
@@ -484,7 +485,7 @@ export function IntervencionesPage({
       );
     }
 
-    if (intervenciones.length === 0) {
+    if(intervenciones.length===0) {
       return (
         <div className="flex flex-col items-center px-6 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E4F8F8] text-[#009EAD]">
@@ -493,9 +494,9 @@ export function IntervencionesPage({
           <p className="mt-4 text-sm font-semibold text-[#203B45]">
             {hayFiltros
               ? "No hay intervenciones con los filtros aplicados"
-              : "Aún no hay intervenciones registradas"}
+              :"Aún no hay intervenciones registradas"}
           </p>
-          {hayFiltros && (
+          {hayFiltros&&(
             <button
               type="button"
               onClick={limpiarFiltros}
@@ -526,7 +527,7 @@ export function IntervencionesPage({
                 <th scope="col" className="px-4 py-3">
                   Descripción
                 </th>
-                {gateway.actualizar && (
+                {gateway.actualizar&&(
                   <th scope="col" className="px-4 py-3">
                     Acción
                   </th>
@@ -544,14 +545,14 @@ export function IntervencionesPage({
                   </td>
                   <td className="px-4 py-3.5">
                     <p className="text-sm">{item.descripcion}</p>
-                    {item.observaciones && (
+                    {item.observaciones&&(
                       <p className="mt-1 text-xs text-[#718895]">
                         <span className="font-medium">Observaciones: </span>
                         <span>{item.observaciones}</span>
                       </p>
                     )}
                   </td>
-                  {gateway.actualizar && (
+                  {gateway.actualizar&&(
                     <td className="px-4 py-3.5">
                       <button
                         type="button"
@@ -586,7 +587,7 @@ export function IntervencionesPage({
                 </span>
               </div>
               <p className="mt-2 text-sm text-[#29434D]">{item.descripcion}</p>
-              {item.observaciones && (
+              {item.observaciones&&(
                 <p className="mt-1 text-xs text-[#8297A1]">
                   <span className="font-medium">Observaciones: </span>
                   <span>{item.observaciones}</span>
@@ -618,7 +619,7 @@ export function IntervencionesPage({
         </button>
       </div>
 
-      {aviso && (
+      {aviso&&(
         <output className="flex items-start gap-2 border-l-4 border-[#168052] bg-[#E9F7F0] p-3 text-sm text-[#23845A]">
           <CheckCircle2
             size={16}
@@ -637,7 +638,7 @@ export function IntervencionesPage({
       )}
 
       <FormularioIntervencion
-        key={editando?.id ?? "nueva"}
+        key={editando?.id??"nueva"}
         hoy={hoy}
         editando={editando}
         onGuardar={guardar}

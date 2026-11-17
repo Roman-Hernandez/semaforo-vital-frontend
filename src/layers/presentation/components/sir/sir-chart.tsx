@@ -19,89 +19,89 @@ interface PuntoFecha {
   readonly proy?: SIRProjectedDay;
 }
 
-const COLORES = {
+const COLORES={
   susceptibles: "#1d4ed8",
   infectados: "#c53030",
   recuperados: "#15803d",
 } as const;
 
-function formatearNumero(valor: number | null | undefined): string {
-  if (valor === null || valor === undefined || !Number.isFinite(valor)) {
+function formatearNumero(valor: number|null|undefined): string {
+  if(valor===null||valor===undefined||!Number.isFinite(valor)) {
     return "Sin dato";
   }
-  return valor.toLocaleString("es-CO", { maximumFractionDigits: 2 });
+  return valor.toLocaleString("es-CO",{ maximumFractionDigits: 2 });
 }
 
 function formatearFechaCorta(iso: string): string {
-  const limpia = iso.slice(0, 10);
-  const partes = limpia.split("-");
-  if (partes.length !== 3) return limpia;
+  const limpia=iso.slice(0,10);
+  const partes=limpia.split("-");
+  if(partes.length!==3) return limpia;
   return `${partes[2]}/${partes[1]}`;
 }
 
-export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
-  const [indiceActivo, setIndiceActivo] = useState<number | null>(null);
+export function SIRChart({ titulo,observado,proyeccion }: SIRChartProps) {
+  const [indiceActivo,setIndiceActivo]=useState<number|null>(null);
 
   // Construye el eje de fechas únicamente con las fechas entregadas por el API
-  const mapaFechas = new Map<
+  const mapaFechas=new Map<
     string,
     { obs?: SIRObservation; proy?: SIRProjectedDay }
   >();
 
-  for (const o of observado) {
-    const f = o.fecha.slice(0, 10);
-    mapaFechas.set(f, { ...(mapaFechas.get(f) ?? {}), obs: o });
+  for(const o of observado) {
+    const f=o.fecha.slice(0,10);
+    mapaFechas.set(f,{ ...mapaFechas.get(f),obs: o });
   }
-  for (const p of proyeccion) {
-    const f = p.fecha.slice(0, 10);
-    mapaFechas.set(f, { ...(mapaFechas.get(f) ?? {}), proy: p });
+  for(const p of proyeccion) {
+    const f=p.fecha.slice(0,10);
+    mapaFechas.set(f,{ ...mapaFechas.get(f),proy: p });
   }
 
-  const fechasOrdenadas = Array.from(mapaFechas.keys()).sort((a, b) =>
+  const fechasOrdenadas=Array.from(mapaFechas.keys()).sort((a,b) =>
     a.localeCompare(b)
   );
 
-  const puntosEje: PuntoFecha[] = fechasOrdenadas.map((fecha, indice) => ({
+  const puntosEje: PuntoFecha[]=fechasOrdenadas.map((fecha,indice) => ({
     fecha,
     indice,
     ...mapaFechas.get(fecha),
   }));
 
-  if (puntosEje.length === 0) {
+  if(puntosEje.length===0) {
     return null;
   }
 
-  const valoresNumericos: number[] = [];
-  for (const o of observado) {
+  const valoresNumericos: number[]=[];
+  for(const o of observado) {
     valoresNumericos.push(o.infectados);
-    if (o.susceptibles !== null) valoresNumericos.push(o.susceptibles);
-    if (o.recuperados !== null) valoresNumericos.push(o.recuperados);
+    if(o.susceptibles!==null) valoresNumericos.push(o.susceptibles);
+    if(o.recuperados!==null) valoresNumericos.push(o.recuperados);
   }
-  for (const p of proyeccion) {
-    valoresNumericos.push(p.susceptibles, p.infectados, p.recuperados);
+  for(const p of proyeccion) {
+    valoresNumericos.push(p.susceptibles,p.infectados,p.recuperados);
   }
 
-  const maximo = Math.max(1, ...valoresNumericos);
-  const totalPasos = Math.max(1, puntosEje.length - 1);
+  const maximo=Math.max(1,...valoresNumericos);
+  const totalPasos=Math.max(1,puntosEje.length-1);
 
-  const x = (indice: number) => 70 + (indice / totalPasos) * 650;
-  const y = (valor: number) => 230 - (valor / maximo) * 195;
+  const x=(indice: number) => 70+(indice/totalPasos)*650;
+  const y=(valor: number) => 230-(valor/maximo)*195;
 
-  const indicePorFecha = new Map<string, number>();
-  puntosEje.forEach((p) => indicePorFecha.set(p.fecha, p.indice));
+  const indicePorFecha=new Map<string,number>();
+  puntosEje.forEach((p) => indicePorFecha.set(p.fecha,p.indice));
 
   function construirPuntosObs(
-    selector: (o: SIRObservation) => number | null
+    selector: (o: SIRObservation) => number|null
   ): { x: number; y: number; fecha: string; valor: number }[] {
-    const lista: { x: number; y: number; fecha: string; valor: number }[] = [];
-    for (const o of observado) {
-      const val = selector(o);
-      const idx = indicePorFecha.get(o.fecha.slice(0, 10));
-      if (val !== null && Number.isFinite(val) && idx !== undefined) {
+    const lista: { x: number; y: number; fecha: string; valor: number }[]=[];
+    for(const o of observado) {
+      const val=selector(o);
+      const idx=indicePorFecha.get(o.fecha.slice(0,10));
+      if(val!==null&&Number.isFinite(val)&&idx!==undefined) {
         lista.push({
           x: x(idx),
           y: y(val),
-          fecha: o.fecha.slice(0, 10),
+          fecha: o.fecha.slice(0,10),
           valor: val,
         });
       }
@@ -112,15 +112,15 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
   function construirPuntosProy(
     selector: (p: SIRProjectedDay) => number
   ): { x: number; y: number; fecha: string; valor: number }[] {
-    const lista: { x: number; y: number; fecha: string; valor: number }[] = [];
-    for (const p of proyeccion) {
-      const val = selector(p);
-      const idx = indicePorFecha.get(p.fecha.slice(0, 10));
-      if (Number.isFinite(val) && idx !== undefined) {
+    const lista: { x: number; y: number; fecha: string; valor: number }[]=[];
+    for(const p of proyeccion) {
+      const val=selector(p);
+      const idx=indicePorFecha.get(p.fecha.slice(0,10));
+      if(Number.isFinite(val)&&idx!==undefined) {
         lista.push({
           x: x(idx),
           y: y(val),
-          fecha: p.fecha.slice(0, 10),
+          fecha: p.fecha.slice(0,10),
           valor: val,
         });
       }
@@ -128,32 +128,32 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
     return lista;
   }
 
-  const obsS = construirPuntosObs((o) => o.susceptibles);
-  const obsI = construirPuntosObs((o) => o.infectados);
-  const obsR = construirPuntosObs((o) => o.recuperados);
+  const obsS=construirPuntosObs((o) => o.susceptibles);
+  const obsI=construirPuntosObs((o) => o.infectados);
+  const obsR=construirPuntosObs((o) => o.recuperados);
 
-  const proyS = construirPuntosProy((p) => p.susceptibles);
-  const proyI = construirPuntosProy((p) => p.infectados);
-  const proyR = construirPuntosProy((p) => p.recuperados);
+  const proyS=construirPuntosProy((p) => p.susceptibles);
+  const proyI=construirPuntosProy((p) => p.infectados);
+  const proyR=construirPuntosProy((p) => p.recuperados);
 
-  const fechaInicioProy = proyeccion[0]?.fecha.slice(0, 10);
-  const idxInicioProy = fechaInicioProy
+  const fechaInicioProy=proyeccion[0]?.fecha.slice(0,10);
+  const idxInicioProy=fechaInicioProy
     ? indicePorFecha.get(fechaInicioProy)
-    : undefined;
+    :undefined;
 
-  const etiquetasX =
-    puntosEje.length <= 6
+  const etiquetasX=
+    puntosEje.length<=6
       ? puntosEje
-      : [
-          puntosEje[0],
-          puntosEje[Math.floor(puntosEje.length * 0.25)],
-          puntosEje[Math.floor(puntosEje.length * 0.5)],
-          puntosEje[Math.floor(puntosEje.length * 0.75)],
-          puntosEje[puntosEje.length - 1],
-        ];
+      :[
+        puntosEje[0],
+        puntosEje[Math.floor(puntosEje.length*0.25)],
+        puntosEje[Math.floor(puntosEje.length*0.5)],
+        puntosEje[Math.floor(puntosEje.length*0.75)],
+        puntosEje.at(-1)!,
+      ];
 
-  const puntoSeleccionado =
-    indiceActivo !== null ? puntosEje[indiceActivo] ?? null : null;
+  const puntoSeleccionado=
+    indiceActivo!==null? puntosEje[indiceActivo]??null:null;
 
   return (
     <figure className="border-t-2 border-[#008994] bg-white p-5 shadow-xs">
@@ -178,29 +178,29 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
         </title>
 
         {/* Líneas guía horizontales */}
-        {[0, 0.25, 0.5, 0.75, 1].map((fraccion) => (
+        {[0,0.25,0.5,0.75,1].map((fraccion) => (
           <g key={fraccion}>
             <line
               x1="70"
-              y1={y(maximo * fraccion)}
+              y1={y(maximo*fraccion)}
               x2="720"
-              y2={y(maximo * fraccion)}
+              y2={y(maximo*fraccion)}
               stroke="#E6EEF0"
             />
             <text
               x="62"
-              y={y(maximo * fraccion) + 4}
+              y={y(maximo*fraccion)+4}
               textAnchor="end"
               fontSize="11"
               fill="#53636B"
             >
-              {Math.round(maximo * fraccion).toLocaleString("es-CO")}
+              {Math.round(maximo*fraccion).toLocaleString("es-CO")}
             </text>
           </g>
         ))}
 
         {/* Línea divisoria de inicio de proyección */}
-        {idxInicioProy !== undefined && proyeccion.length > 0 && (
+        {idxInicioProy!==undefined&&proyeccion.length>0&&(
           <g>
             <line
               x1={x(idxInicioProy)}
@@ -212,7 +212,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
               strokeDasharray="4 4"
             />
             <text
-              x={x(idxInicioProy) + 6}
+              x={x(idxInicioProy)+6}
               y="24"
               fontSize="10"
               fontWeight="600"
@@ -249,14 +249,14 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
 
         {/* Series Observadas (línea continua + puntos) */}
         {[
-          { clave: "obs-s", puntos: obsS, color: COLORES.susceptibles },
-          { clave: "obs-i", puntos: obsI, color: COLORES.infectados },
-          { clave: "obs-r", puntos: obsR, color: COLORES.recuperados },
+          { clave: "obs-s",puntos: obsS,color: COLORES.susceptibles },
+          { clave: "obs-i",puntos: obsI,color: COLORES.infectados },
+          { clave: "obs-r",puntos: obsR,color: COLORES.recuperados },
         ].map(
-          ({ clave, puntos, color }) =>
-            puntos.length > 0 && (
+          ({ clave,puntos,color }) =>
+            puntos.length>0&&(
               <g key={clave}>
-                {puntos.length > 1 && (
+                {puntos.length>1&&(
                   <polyline
                     fill="none"
                     stroke={color}
@@ -281,12 +281,12 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
 
         {/* Series Proyectadas (línea discontinua) */}
         {[
-          { clave: "proy-s", puntos: proyS, color: COLORES.susceptibles },
-          { clave: "proy-i", puntos: proyI, color: COLORES.infectados },
-          { clave: "proy-r", puntos: proyR, color: COLORES.recuperados },
+          { clave: "proy-s",puntos: proyS,color: COLORES.susceptibles },
+          { clave: "proy-i",puntos: proyI,color: COLORES.infectados },
+          { clave: "proy-r",puntos: proyR,color: COLORES.recuperados },
         ].map(
-          ({ clave, puntos, color }) =>
-            puntos.length > 1 && (
+          ({ clave,puntos,color }) =>
+            puntos.length>1&&(
               <polyline
                 key={clave}
                 fill="none"
@@ -300,11 +300,11 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
 
         {/* Franjas interactivas para inspección por fecha */}
         {puntosEje.map((pt) => {
-          const ancho = Math.max(12, 650 / Math.max(1, puntosEje.length));
+          const ancho=Math.max(12,650/Math.max(1,puntosEje.length));
           return (
             <rect
               key={`hit-${pt.fecha}`}
-              x={x(pt.indice) - ancho / 2}
+              x={x(pt.indice)-ancho/2}
               y="25"
               width={ancho}
               height="210"
@@ -318,7 +318,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
       </svg>
 
       {/* Tooltip / Detalle de fecha seleccionada */}
-      {puntoSeleccionado && (
+      {puntoSeleccionado&&(
         <div
           aria-live="polite"
           className="mt-2 flex flex-wrap items-center gap-4 bg-[#F4F8FA] px-3.5 py-2 text-xs text-[#164652]"
@@ -326,7 +326,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
           <strong className="font-bold">
             Fecha: {puntoSeleccionado.fecha}
           </strong>
-          {puntoSeleccionado.obs && (
+          {puntoSeleccionado.obs&&(
             <span>
               <strong>Observado</strong> — S:{" "}
               {formatearNumero(puntoSeleccionado.obs.susceptibles)} · I:{" "}
@@ -334,7 +334,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
               {formatearNumero(puntoSeleccionado.obs.recuperados)}
             </span>
           )}
-          {puntoSeleccionado.proy && (
+          {puntoSeleccionado.proy&&(
             <span>
               <strong>Proyección (día {puntoSeleccionado.proy.dia})</strong> —
               S: {formatearNumero(puntoSeleccionado.proy.susceptibles)} · I:{" "}
@@ -371,7 +371,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
           />
           <span>Recuperados (R) — observado</span>
         </li>
-        {proyeccion.length > 0 && (
+        {proyeccion.length>0&&(
           <li className="flex items-center gap-2 font-medium text-[#164652]">
             <span
               aria-hidden="true"

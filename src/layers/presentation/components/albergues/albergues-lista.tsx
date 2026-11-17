@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect,useRef,useState } from "react";
 import {
   Ellipsis,
   Eye,
@@ -14,9 +14,9 @@ import {
 import type { Albergue } from "@/layers/domain/albergues/albergue";
 import type { Page } from "@/layers/application/services/paginacion";
 import { ControlesPaginacion } from "@/components/shared/ControlesPaginacion";
-import { EstadoBadge, RiesgoBadge } from "./insignias";
+import { EstadoBadge,RiesgoBadge } from "./insignias";
 
-export type FiltroEstado = "todos" | "activos" | "inactivos";
+export type FiltroEstado="todos"|"activos"|"inactivos";
 
 export interface FiltrosAlbergues {
   busqueda: string;
@@ -25,14 +25,14 @@ export interface FiltrosAlbergues {
   hasta: string;
 }
 
-export const FILTROS_INICIALES: FiltrosAlbergues = {
+export const FILTROS_INICIALES: FiltrosAlbergues={
   busqueda: "",
   estado: "todos",
   desde: "",
   hasta: "",
 };
 
-export type EstadoCarga = "cargando" | "listo" | "error";
+export type EstadoCarga="cargando"|"listo"|"error";
 
 interface AlberguesListaProps {
   readonly estadoCarga: EstadoCarga;
@@ -41,7 +41,7 @@ interface AlberguesListaProps {
   readonly totalActivos: number;
   readonly pagina: Page<Albergue>;
   readonly filtros: FiltrosAlbergues;
-  readonly seleccionadoId: string | null;
+  readonly seleccionadoId: string|null;
   readonly puedeAdministrar: boolean;
   readonly onFiltrosChange: (filtros: FiltrosAlbergues) => void;
   readonly onPaginaChange: (pagina: number) => void;
@@ -53,7 +53,7 @@ interface AlberguesListaProps {
   readonly onRegistrar: () => void;
 }
 
-const CONTROL =
+const CONTROL=
   "h-9 border border-[#DCE6EA] bg-white px-3 text-xs text-[#164652] outline-none transition focus:border-[#008994]";
 
 function IconoAlbergue() {
@@ -71,16 +71,16 @@ function MenuEstado({
   readonly albergue: Albergue;
   readonly onCambiarEstado: (albergue: Albergue) => void;
 }) {
-  const [abierto, setAbierto] = useState(false);
-  const contenedor = useRef<HTMLDivElement>(null);
+  const [abierto,setAbierto]=useState(false);
+  const contenedor=useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!abierto) return;
+    if(!abierto) return;
 
-    function cerrar(evento: MouseEvent | KeyboardEvent) {
-      if (evento instanceof KeyboardEvent && evento.key !== "Escape") return;
-      if (
-        evento instanceof MouseEvent &&
+    function cerrar(evento: MouseEvent|KeyboardEvent) {
+      if(evento instanceof KeyboardEvent&&evento.key!=="Escape") return;
+      if(
+        evento instanceof MouseEvent&&
         contenedor.current?.contains(evento.target as Node)
       ) {
         return;
@@ -88,14 +88,14 @@ function MenuEstado({
       setAbierto(false);
     }
 
-    document.addEventListener("mousedown", cerrar);
-    document.addEventListener("keydown", cerrar);
+    document.addEventListener("mousedown",cerrar);
+    document.addEventListener("keydown",cerrar);
 
     return () => {
-      document.removeEventListener("mousedown", cerrar);
-      document.removeEventListener("keydown", cerrar);
+      document.removeEventListener("mousedown",cerrar);
+      document.removeEventListener("keydown",cerrar);
     };
-  }, [abierto]);
+  },[abierto]);
 
   return (
     <div ref={contenedor} className="relative">
@@ -110,7 +110,7 @@ function MenuEstado({
         <Ellipsis size={16} aria-hidden="true" />
       </button>
 
-      {abierto && (
+      {abierto&&(
         <div
           role="menu"
           className="absolute top-full right-0 z-20 mt-1 w-40 border border-[#DCE6EA] bg-white p-1 shadow-lg"
@@ -122,11 +122,10 @@ function MenuEstado({
               setAbierto(false);
               onCambiarEstado(albergue);
             }}
-            className={`w-full px-3 py-2 text-left text-xs font-semibold transition hover:bg-[#F3F8FA] ${
-              albergue.activo ? "text-[#C53030]" : "text-[#008994]"
-            }`}
+            className={`w-full px-3 py-2 text-left text-xs font-semibold transition hover:bg-[#F3F8FA] ${albergue.activo? "text-[#C53030]":"text-[#008994]"
+              }`}
           >
-            {albergue.activo ? "Desactivar" : "Reactivar"}
+            {albergue.activo? "Desactivar":"Reactivar"}
           </button>
         </div>
       )}
@@ -137,7 +136,7 @@ function MenuEstado({
 function FilasCargando() {
   return (
     <div aria-hidden="true" className="divide-y divide-[#EEF2F4]">
-      {[1, 2, 3, 4, 5].map((fila) => (
+      {[1,2,3,4,5].map((fila) => (
         <div
           key={fila}
           className="flex animate-pulse items-center gap-4 px-4 py-4"
@@ -169,9 +168,9 @@ function EstadoVacio({
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F9FA] text-[#008994]">
-        {hayFiltros ? (
+        {hayFiltros? (
           <Search size={22} aria-hidden="true" />
-        ) : (
+        ):(
           <Tent size={22} aria-hidden="true" />
         )}
       </span>
@@ -179,16 +178,16 @@ function EstadoVacio({
       <p className="mt-4 text-sm font-semibold text-[#164652]">
         {hayFiltros
           ? "No se encontraron albergues con los filtros aplicados"
-          : "Aún no hay albergues registrados"}
+          :"Aún no hay albergues registrados"}
       </p>
 
       <p className="mt-1 max-w-sm text-xs text-[#53636B]">
         {hayFiltros
           ? "Prueba con otro nombre, código, municipio, departamento o rango de fechas."
-          : "Registra el primer centro habilitado para empezar su seguimiento."}
+          :"Registra el primer centro habilitado para empezar su seguimiento."}
       </p>
 
-      {hayFiltros && (
+      {hayFiltros&&(
         <button
           type="button"
           onClick={onLimpiar}
@@ -198,7 +197,7 @@ function EstadoVacio({
         </button>
       )}
 
-      {!hayFiltros && puedeAdministrar && (
+      {!hayFiltros&&puedeAdministrar&&(
         <button
           type="button"
           onClick={onRegistrar}
@@ -229,16 +228,16 @@ export function AlberguesLista({
   onReintentar,
   onRegistrar,
 }: AlberguesListaProps) {
-  const albergues = pagina.items;
-  const hayFiltros = Boolean(
-    filtros.busqueda.trim() ||
-      filtros.estado !== "todos" ||
-      filtros.desde ||
-      filtros.hasta
+  const albergues=pagina.items;
+  const hayFiltros=Boolean(
+    filtros.busqueda.trim()||
+    filtros.estado!=="todos"||
+    filtros.desde||
+    filtros.hasta
   );
 
   function contenido() {
-    if (estadoCarga === "cargando") {
+    if(estadoCarga==="cargando") {
       return (
         <div role="status" aria-live="polite">
           <span className="sr-only">Cargando albergues…</span>
@@ -247,7 +246,7 @@ export function AlberguesLista({
       );
     }
 
-    if (estadoCarga === "error") {
+    if(estadoCarga==="error") {
       return (
         <div
           role="alert"
@@ -272,10 +271,10 @@ export function AlberguesLista({
       );
     }
 
-    if (albergues.length === 0) {
+    if(albergues.length===0) {
       return (
         <EstadoVacio
-          hayFiltros={hayFiltros || totalRegistrados > 0}
+          hayFiltros={hayFiltros||totalRegistrados>0}
           puedeAdministrar={puedeAdministrar}
           onLimpiar={() => onFiltrosChange(FILTROS_INICIALES)}
           onRegistrar={onRegistrar}
@@ -286,9 +285,9 @@ export function AlberguesLista({
     return (
       <>
         {/* Tabla escritorio */}
-        <div
-          tabIndex={0}
-          role="region"
+        <section
+
+
           aria-labelledby="titulo-albergues"
           className="hidden overflow-x-auto md:block"
         >
@@ -325,11 +324,10 @@ export function AlberguesLista({
               {albergues.map((albergue) => (
                 <tr
                   key={albergue.id}
-                  className={`transition ${
-                    seleccionadoId === albergue.id
+                  className={`transition ${seleccionadoId===albergue.id
                       ? "bg-[#F4FCFC]"
-                      : "hover:bg-[#FAFCFD]"
-                  }`}
+                      :"hover:bg-[#FAFCFD]"
+                    }`}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -349,9 +347,9 @@ export function AlberguesLista({
                   </td>
                   <td className="px-3 py-3 font-medium text-[#164652]">
                     <span className="font-semibold">
-                      {albergue.poblacionActual === null
+                      {albergue.poblacionActual===null
                         ? "Sin dato"
-                        : albergue.poblacionActual}
+                        :albergue.poblacionActual}
                     </span>
                     <span className="text-[#718895]"> · </span>
                     <span>{albergue.capacidadInstalada} personas</span>
@@ -360,7 +358,7 @@ export function AlberguesLista({
                     <RiesgoBadge riesgo={albergue.riesgo} />
                   </td>
                   <td className="px-3 py-3">
-                    {albergue.administrador ?? "Sin asignar"}
+                    {albergue.administrador??"Sin asignar"}
                   </td>
                   <td className="px-3 py-3">
                     <EstadoBadge activo={albergue.activo} />
@@ -375,7 +373,7 @@ export function AlberguesLista({
                       >
                         <Eye size={16} aria-hidden="true" />
                       </button>
-                      {puedeAdministrar && albergue.activo && (
+                      {puedeAdministrar&&albergue.activo&&(
                         <>
                           <button
                             type="button"
@@ -397,7 +395,7 @@ export function AlberguesLista({
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
 
         {/* Tarjetas móvil */}
         <ul
@@ -407,11 +405,10 @@ export function AlberguesLista({
           {albergues.map((albergue) => (
             <li
               key={albergue.id}
-              className={`border p-3 ${
-                seleccionadoId === albergue.id
+              className={`border p-3 ${seleccionadoId===albergue.id
                   ? "border-[#008994] bg-[#F4FCFC]"
-                  : "border-[#DCE6EA] bg-white"
-              }`}
+                  :"border-[#DCE6EA] bg-white"
+                }`}
             >
               <div className="flex items-center gap-3">
                 <IconoAlbergue />
@@ -430,9 +427,9 @@ export function AlberguesLista({
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Población</dt>
                 <dd className="text-[#53636B]">
-                  {albergue.poblacionActual === null
+                  {albergue.poblacionActual===null
                     ? "Sin dato"
-                    : albergue.poblacionActual}{" "}
+                    :albergue.poblacionActual}{" "}
                   / {albergue.capacidadInstalada} personas
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Riesgo</dt>
@@ -441,7 +438,7 @@ export function AlberguesLista({
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Administrador</dt>
                 <dd className="text-[#53636B]">
-                  {albergue.administrador ?? "Sin asignar"}
+                  {albergue.administrador??"Sin asignar"}
                 </dd>
                 <dt className="text-[11px] text-[#718895]">Estado</dt>
                 <dd>
@@ -450,11 +447,10 @@ export function AlberguesLista({
               </dl>
 
               <div
-                className={`mt-3 grid gap-2 ${
-                  puedeAdministrar && albergue.activo
+                className={`mt-3 grid gap-2 ${puedeAdministrar&&albergue.activo
                     ? "grid-cols-3"
-                    : "grid-cols-1"
-                }`}
+                    :"grid-cols-1"
+                  }`}
               >
                 <button
                   type="button"
@@ -464,7 +460,7 @@ export function AlberguesLista({
                 >
                   Consultar
                 </button>
-                {puedeAdministrar && albergue.activo && (
+                {puedeAdministrar&&albergue.activo&&(
                   <>
                     <button
                       type="button"
@@ -495,7 +491,7 @@ export function AlberguesLista({
   return (
     <section
       aria-labelledby="titulo-albergues"
-      aria-busy={estadoCarga === "cargando"}
+      aria-busy={estadoCarga==="cargando"}
       className="min-w-0 border-t-2 border-[#008994] bg-white shadow-xs"
     >
       <div className="flex flex-col gap-3 p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
@@ -557,10 +553,10 @@ export function AlberguesLista({
             <input
               type="date"
               aria-label="Filtrar desde fecha"
-              max={filtros.hasta || undefined}
+              max={filtros.hasta||undefined}
               value={filtros.desde}
               onChange={(e) =>
-                onFiltrosChange({ ...filtros, desde: e.target.value })
+                onFiltrosChange({ ...filtros,desde: e.target.value })
               }
               className={CONTROL}
             />
@@ -571,16 +567,16 @@ export function AlberguesLista({
             <input
               type="date"
               aria-label="Filtrar hasta fecha"
-              min={filtros.desde || undefined}
+              min={filtros.desde||undefined}
               value={filtros.hasta}
               onChange={(e) =>
-                onFiltrosChange({ ...filtros, hasta: e.target.value })
+                onFiltrosChange({ ...filtros,hasta: e.target.value })
               }
               className={CONTROL}
             />
           </label>
 
-          {hayFiltros && (
+          {hayFiltros&&(
             <button
               type="button"
               onClick={() => onFiltrosChange(FILTROS_INICIALES)}
@@ -598,7 +594,7 @@ export function AlberguesLista({
       <ControlesPaginacion
         pagina={pagina}
         etiquetaItems="albergues"
-        cargando={estadoCarga === "cargando"}
+        cargando={estadoCarga==="cargando"}
         onPageChange={onPaginaChange}
         onPageSizeChange={onPageSizeChange}
         ariaLabel="Paginación de albergues"

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
-import { Pencil, Save } from "lucide-react";
+import { useState,type SyntheticEvent } from "react";
+import { Pencil,Save } from "lucide-react";
 import {
   obtenerEnfermedadesGateway,
   type EnfermedadesGateway,
@@ -20,7 +20,7 @@ export interface EnfermedadesPageProps {
   readonly hoy?: string;
 }
 
-const ENFERMEDADES_CATALOGO = [
+const ENFERMEDADES_CATALOGO=[
   "Infección respiratoria aguda",
   "Enfermedad diarreica aguda",
   "Gastroenteritis",
@@ -28,15 +28,15 @@ const ENFERMEDADES_CATALOGO = [
   "Conjuntivitis",
 ] as const;
 
-const INPUT_CLS =
+const INPUT_CLS=
   "h-10 w-full border border-[#DCE6EA] bg-white px-3 text-sm text-[#164652] outline-none transition focus:border-[#008994]";
 
 export default function EnfermedadesPage({
   gateway: gatewayInyectado,
-  hoy = hoyEnBogota(),
-}: EnfermedadesPageProps = {}) {
-  const [gateway] = useState<EnfermedadesGateway>(
-    () => gatewayInyectado ?? obtenerEnfermedadesGateway()
+  hoy=hoyEnBogota(),
+}: EnfermedadesPageProps={}) {
+  const [gateway]=useState<EnfermedadesGateway>(
+    () => gatewayInyectado??obtenerEnfermedadesGateway()
   );
 
   const {
@@ -54,23 +54,23 @@ export default function EnfermedadesPage({
     setHasta,
     limpiarFiltros,
     recargar,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) => gateway.listar(consulta),
     sincronizarUrl: true,
     mensajeErrorDefecto: "No fue posible cargar los casos de enfermedades.",
   });
 
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [fecha, setFecha] = useState(hoy);
-  const [enfermedad, setEnfermedad] = useState<string>(ENFERMEDADES_CATALOGO[0]);
-  const [casosActivos, setCasosActivos] = useState("1");
+  const [editandoId,setEditandoId]=useState<string|null>(null);
+  const [fecha,setFecha]=useState(hoy);
+  const [enfermedad,setEnfermedad]=useState<string>(ENFERMEDADES_CATALOGO[0]);
+  const [casosActivos,setCasosActivos]=useState("1");
   // Nunca inicializar automáticamente en 0: vacío representa desconocido (null)
-  const [recuperados, setRecuperados] = useState("");
-  const [observaciones, setObservaciones] = useState("");
+  const [recuperados,setRecuperados]=useState("");
+  const [observaciones,setObservaciones]=useState("");
 
-  const [guardando, setGuardando] = useState(false);
-  const [errorForm, setErrorForm] = useState("");
-  const [exitoForm, setExitoForm] = useState("");
+  const [guardando,setGuardando]=useState(false);
+  const [errorForm,setErrorForm]=useState("");
+  const [exitoForm,setExitoForm]=useState("");
 
   function limpiarFormulario() {
     setEditandoId(null);
@@ -88,9 +88,9 @@ export default function EnfermedadesPage({
     setEnfermedad(item.enfermedad);
     setCasosActivos(String(item.cantidadCasosActivos));
     setRecuperados(
-      item.cantidadRecuperados === null || item.cantidadRecuperados === undefined
+      item.cantidadRecuperados===null||item.cantidadRecuperados===undefined
         ? ""
-        : String(item.cantidadRecuperados)
+        :String(item.cantidadRecuperados)
     );
     setObservaciones(item.observaciones);
     setErrorForm("");
@@ -99,31 +99,31 @@ export default function EnfermedadesPage({
 
   async function manejarSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (guardando) return;
+    if(guardando) return;
 
-    const cantidad = Number(casosActivos);
-    if (
-      casosActivos.trim() === "" ||
-      !Number.isInteger(cantidad) ||
-      cantidad < 0
+    const cantidad=Number(casosActivos);
+    if(
+      casosActivos.trim()===""||
+      !Number.isInteger(cantidad)||
+      cantidad<0
     ) {
       setErrorForm("Ingresa una cantidad entera válida de casos activos.");
       return;
     }
 
-    let cantidadRecuperados: number | null = null;
-    if (recuperados.trim() !== "") {
-      const numRec = Number(recuperados);
-      if (!Number.isInteger(numRec) || numRec < 0) {
+    let cantidadRecuperados: number|null=null;
+    if(recuperados.trim()!=="") {
+      const numRec=Number(recuperados);
+      if(!Number.isInteger(numRec)||numRec<0) {
         setErrorForm(
           "La cantidad de recuperados debe ser un número entero mayor o igual a 0, o dejarse en blanco si se desconoce."
         );
         return;
       }
-      cantidadRecuperados = numRec;
+      cantidadRecuperados=numRec;
     }
 
-    if (!fecha || !enfermedad.trim()) {
+    if(!fecha||!enfermedad.trim()) {
       setErrorForm("Selecciona la enfermedad y la fecha del reporte.");
       return;
     }
@@ -133,18 +133,18 @@ export default function EnfermedadesPage({
     setExitoForm("");
 
     try {
-      const payload = {
+      const payload={
         fecha,
         enfermedad: enfermedad.trim(),
         cantidadCasosActivos: cantidad,
-        ...(cantidadRecuperados !== null
+        ...(cantidadRecuperados!==null
           ? { cantidadRecuperados }
-          : {}),
+          :{}),
         observaciones,
       };
 
-      if (editandoId) {
-        await gateway.actualizar(editandoId, payload);
+      if(editandoId) {
+        await gateway.actualizar(editandoId,payload);
         setExitoForm("El caso se actualizó correctamente.");
       } else {
         await gateway.crear(payload);
@@ -152,13 +152,106 @@ export default function EnfermedadesPage({
       }
       limpiarFormulario();
       recargar();
-    } catch (err: unknown) {
+    } catch(err: unknown) {
       setErrorForm(
-        err instanceof Error ? err.message : "No fue posible guardar el caso."
+        err instanceof Error? err.message:"No fue posible guardar el caso."
       );
     } finally {
       setGuardando(false);
     }
+  }
+
+  function textoGuardar() {
+    if(guardando) { return "Guardando…"; }
+    if(editandoId) { return "Guardar cambios"; }
+    return "Guardar registro";
+  }
+
+  function renderizarHistorial() {
+    if(errorCarga) {
+      return <div role="alert" className="p-6 text-sm text-[#C53030]">
+        <p>{errorCarga}</p>
+        <button
+          type="button"
+          onClick={recargar}
+          className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
+        >
+          Reintentar
+        </button>
+      </div>;
+    }
+    if(cargando) { return <SkeletonBloque filas={4} etiqueta="Cargando casos registrados…" />; }
+    if(registros.length===0) {
+      return <p className="p-8 text-center text-sm text-[#53636B]">
+        No se encontraron casos registrados.
+      </p>;
+    }
+    return <section
+
+
+      aria-labelledby="titulo-tabla-enfermedades"
+      className="overflow-x-auto"
+    >
+      <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
+        <caption className="sr-only">
+          Listado de casos de enfermedades
+        </caption>
+        <thead>
+          <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
+            <th scope="col" className="px-4 py-3">
+              Fecha
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Enfermedad
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Casos activos
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Recuperados
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Observaciones
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Acción
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#EEF2F4]">
+          {registros.map((item) => (
+            <tr key={item.id} className="hover:bg-[#FAFCFD]">
+              <td className="whitespace-nowrap px-4 py-3 font-medium text-[#164652]">
+                {item.fecha}
+              </td>
+              <td className="px-3 py-3 font-semibold text-[#164652]">
+                {item.enfermedad}
+              </td>
+              <td className="px-3 py-3 font-bold text-[#164652]">
+                {item.cantidadCasosActivos}
+              </td>
+              <td className="px-3 py-3 text-[#164652]">
+                {item.cantidadRecuperados??"Sin dato"}
+              </td>
+              <td className="max-w-xs px-3 py-3">
+                {item.observaciones||"—"}
+              </td>
+              <td className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => cargarEnFormulario(item)}
+                  aria-label={`Editar caso de ${item.enfermedad}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
+                >
+                  <Pencil size={13} aria-hidden="true" />
+                  Editar
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>;
   }
 
   return (
@@ -172,7 +265,7 @@ export default function EnfermedadesPage({
       {/* Formulario horizontal superior */}
       <aside className="border-t-2 border-[#008994] bg-white p-5 shadow-xs">
         <h2 className="text-base font-bold text-[#164652]">
-          {editandoId ? "Editar caso" : "Registrar caso"}
+          {editandoId? "Editar caso":"Registrar caso"}
         </h2>
 
         <form onSubmit={manejarSubmit} noValidate className="mt-4 space-y-4">
@@ -277,7 +370,7 @@ export default function EnfermedadesPage({
             </div>
 
             <div className="flex gap-2">
-              {editandoId && (
+              {editandoId&&(
                 <button
                   type="button"
                   onClick={limpiarFormulario}
@@ -294,23 +387,19 @@ export default function EnfermedadesPage({
               >
                 <Save size={14} aria-hidden="true" />
                 <span>
-                  {guardando
-                    ? "Guardando…"
-                    : editandoId
-                    ? "Guardar cambios"
-                    : "Guardar registro"}
+                  {textoGuardar()}
                 </span>
               </button>
             </div>
           </div>
 
-          {errorForm && (
+          {errorForm&&(
             <p role="alert" className="text-xs font-medium text-[#C53030]">
               {errorForm}
             </p>
           )}
 
-          {exitoForm && (
+          {exitoForm&&(
             <output className="block text-xs font-medium text-[#168052]">
               {exitoForm}
             </output>
@@ -346,94 +435,7 @@ export default function EnfermedadesPage({
           />
         </div>
 
-        {errorCarga ? (
-          <div role="alert" className="p-6 text-sm text-[#C53030]">
-            <p>{errorCarga}</p>
-            <button
-              type="button"
-              onClick={recargar}
-              className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : cargando ? (
-          <SkeletonBloque filas={4} etiqueta="Cargando casos registrados…" />
-        ) : registros.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#53636B]">
-            No se encontraron casos registrados.
-          </p>
-        ) : (
-          <div
-            tabIndex={0}
-            role="region"
-            aria-labelledby="titulo-tabla-enfermedades"
-            className="overflow-x-auto"
-          >
-            <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
-              <caption className="sr-only">
-                Listado de casos de enfermedades
-              </caption>
-              <thead>
-                <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
-                  <th scope="col" className="px-4 py-3">
-                    Fecha
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Enfermedad
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Casos activos
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Recuperados
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Observaciones
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Acción
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EEF2F4]">
-                {registros.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#FAFCFD]">
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-[#164652]">
-                      {item.fecha}
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-[#164652]">
-                      {item.enfermedad}
-                    </td>
-                    <td className="px-3 py-3 font-bold text-[#164652]">
-                      {item.cantidadCasosActivos}
-                    </td>
-                    <td className="px-3 py-3 text-[#164652]">
-                      {item.cantidadRecuperados === null ||
-                      item.cantidadRecuperados === undefined
-                        ? "Sin dato"
-                        : item.cantidadRecuperados}
-                    </td>
-                    <td className="max-w-xs px-3 py-3">
-                      {item.observaciones || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => cargarEnFormulario(item)}
-                        aria-label={`Editar caso de ${item.enfermedad}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
-                      >
-                        <Pencil size={13} aria-hidden="true" />
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {renderizarHistorial()}
 
         <ControlesPaginacion
           pagina={pagina}

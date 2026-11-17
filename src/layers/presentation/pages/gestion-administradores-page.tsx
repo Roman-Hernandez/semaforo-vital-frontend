@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect,useMemo,useRef,useState,type SyntheticEvent } from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -47,30 +47,36 @@ export interface AlbergueResumen {
 
 export interface GestionAdministradoresPageProps {
   readonly gateway?: AdministradoresGateway;
-  readonly alberguesGateway?: Pick<AlberguesGateway, "listar" | "obtener">;
+  readonly alberguesGateway?: Pick<AlberguesGateway,"listar"|"obtener">;
   readonly listarAlbergues?: (
     consulta?: ConsultaPaginada
-  ) => Promise<Page<AlbergueResumen> | AlbergueResumen[]>;
+  ) => Promise<Page<AlbergueResumen>|AlbergueResumen[]>;
 }
 
-const INPUT_CLS =
+const INPUT_CLS=
   "h-10 w-full border border-[#DCE6EA] bg-white px-3 text-sm text-[#164652] outline-none transition focus:border-[#008994]";
 
 export function GestionAdministradoresPage({
   gateway: gatewayInyectado,
   alberguesGateway: alberguesGatewayInyectado,
   listarAlbergues: listarAlberguesInyectado,
-}: GestionAdministradoresPageProps = {}) {
-  const [gateway] = useState<AdministradoresGateway>(
-    () => gatewayInyectado ?? obtenerAdministradoresGateway()
+}: GestionAdministradoresPageProps={}) {
+  const [gateway]=useState<AdministradoresGateway>(
+    () => gatewayInyectado??obtenerAdministradoresGateway()
   );
-  const [alberguesGw] = useState<Pick<AlberguesGateway, "listar" | "obtener">>(
-    () => alberguesGatewayInyectado ?? obtenerAlberguesGateway(leerToken)
+  const [alberguesGw]=useState<Pick<AlberguesGateway,"listar"|"obtener">>(
+    () => alberguesGatewayInyectado??obtenerAlberguesGateway(leerToken)
   );
 
-  const [filtroEstadoAdmin, setFiltroEstadoAdmin] = useState<
-    "todos" | "activos" | "inactivos"
+  const [filtroEstadoAdmin,setFiltroEstadoAdmin]=useState<
+    "todos"|"activos"|"inactivos"
   >("todos");
+
+  function valorFiltroActivo() {
+    if(filtroEstadoAdmin==="activos") { return true; }
+    if(filtroEstadoAdmin==="inactivos") { return false; }
+    return undefined;
+  }
 
   const {
     datos: paginaAdmins,
@@ -87,66 +93,62 @@ export function GestionAdministradoresPage({
     setHasta,
     limpiarFiltros,
     recargar,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) =>
       gateway.listar({
         ...consulta,
         activo:
-          filtroEstadoAdmin === "activos"
-            ? true
-            : filtroEstadoAdmin === "inactivos"
-            ? false
-            : undefined,
+          valorFiltroActivo(),
       }),
     claveExtra: filtroEstadoAdmin,
     sincronizarUrl: true,
     mensajeErrorDefecto: "No fue posible cargar los administradores.",
   });
 
-  const [formularioAbierto, setFormularioAbierto] = useState(true);
-  const [editando, setEditando] = useState<Administrador | null>(null);
+  const [formularioAbierto,setFormularioAbierto]=useState(true);
+  const [editando,setEditando]=useState<Administrador|null>(null);
 
-  const [nombre, setNombre] = useState("");
-  const [apellido, setApellido] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [albergueId, setAlbergueId] = useState("");
-  const [albergueSeleccionadoCache, setAlbergueSeleccionadoCache] =
-    useState<AlbergueResumen | null>(null);
-  const [activo, setActivo] = useState(true);
+  const [nombre,setNombre]=useState("");
+  const [apellido,setApellido]=useState("");
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [albergueId,setAlbergueId]=useState("");
+  const [albergueSeleccionadoCache,setAlbergueSeleccionadoCache]=
+    useState<AlbergueResumen|null>(null);
+  const [activo,setActivo]=useState(true);
 
   // Estado del selector paginado y buscable de albergues en servidor
-  const [busquedaAlbergue, setBusquedaAlbergue] = useState("");
-  const busquedaAlbergueDebounced = useValorDebounced(busquedaAlbergue);
-  const [paginaAlbergue, setPaginaAlbergue] = useState(1);
-  const [paginaOpcionesAlbergue, setPaginaOpcionesAlbergue] = useState<
+  const [busquedaAlbergue,setBusquedaAlbergue]=useState("");
+  const busquedaAlbergueDebounced=useValorDebounced(busquedaAlbergue);
+  const [paginaAlbergue,setPaginaAlbergue]=useState(1);
+  const [paginaOpcionesAlbergue,setPaginaOpcionesAlbergue]=useState<
     Page<AlbergueResumen>
-  >(() => paginaVacia<AlbergueResumen>(1, 10));
-  const secuenciaAlberguesRef = useRef(0);
+  >(() => paginaVacia<AlbergueResumen>(1,10));
+  const secuenciaAlberguesRef=useRef(0);
 
-  const [guardando, setGuardando] = useState(false);
-  const [errorFormulario, setErrorFormulario] = useState("");
-  const [aviso, setAviso] = useState("");
+  const [guardando,setGuardando]=useState(false);
+  const [errorFormulario,setErrorFormulario]=useState("");
+  const [aviso,setAviso]=useState("");
 
   useEffect(() => {
-    if (!formularioAbierto) return;
-    const idPeticion = ++secuenciaAlberguesRef.current;
+    if(!formularioAbierto) return;
+    const idPeticion=++secuenciaAlberguesRef.current;
 
-    const consulta: ConsultaPaginada = {
+    const consulta: ConsultaPaginada={
       page: paginaAlbergue,
       page_size: 10,
-      q: busquedaAlbergueDebounced || undefined,
+      q: busquedaAlbergueDebounced||undefined,
       activo: true,
     };
 
-    const promesa = listarAlberguesInyectado
+    const promesa=listarAlberguesInyectado
       ? listarAlberguesInyectado(consulta)
-      : alberguesGw.listar(consulta);
+      :alberguesGw.listar(consulta);
 
     promesa
       .then((res) => {
-        if (idPeticion !== secuenciaAlberguesRef.current) return;
-        if (Array.isArray(res)) {
+        if(idPeticion!==secuenciaAlberguesRef.current) return;
+        if(Array.isArray(res)) {
           setPaginaOpcionesAlbergue({
             items: res.map((a) => ({
               id: a.id,
@@ -154,9 +156,9 @@ export function GestionAdministradoresPage({
               nombre: a.nombre,
             })),
             page: 1,
-            page_size: Math.max(10, res.length),
+            page_size: Math.max(10,res.length),
             total: res.length,
-            total_pages: res.length > 0 ? 1 : 0,
+            total_pages: res.length>0? 1:0,
             has_next: false,
             has_previous: false,
           });
@@ -172,10 +174,10 @@ export function GestionAdministradoresPage({
         }
       })
       .catch(() => {
-        if (idPeticion !== secuenciaAlberguesRef.current) return;
-        setPaginaOpcionesAlbergue(paginaVacia<AlbergueResumen>(1, 10));
+        if(idPeticion!==secuenciaAlberguesRef.current) return;
+        setPaginaOpcionesAlbergue(paginaVacia<AlbergueResumen>(1,10));
       });
-  }, [
+  },[
     formularioAbierto,
     paginaAlbergue,
     busquedaAlbergueDebounced,
@@ -185,63 +187,61 @@ export function GestionAdministradoresPage({
 
   // Si hay un albergueId seleccionado que no está en la página actual ni tiene nombre en caché, consulta solo ese ID
   useEffect(() => {
-    if (!albergueId || !alberguesGw.obtener) {
+    if(!albergueId||!alberguesGw.obtener) {
       return;
     }
-    const enPagina = paginaOpcionesAlbergue.items.some(
-      (a) => a.id === albergueId
+    const enPagina=paginaOpcionesAlbergue.items.some(
+      (a) => a.id===albergueId
     );
-    if (
-      enPagina ||
-      (albergueSeleccionadoCache &&
-        albergueSeleccionadoCache.id === albergueId)
+    if(
+      enPagina||
+      albergueSeleccionadoCache?.id===albergueId
     ) {
       return;
     }
 
-    let vigente = true;
+    let vigente=true;
     alberguesGw
       .obtener(albergueId)
       .then((detalle) => {
-        if (!vigente) return;
+        if(!vigente) return;
         setAlbergueSeleccionadoCache({
           id: detalle.id,
           codigo: detalle.codigo,
           nombre: detalle.nombre,
         });
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
-      vigente = false;
+      vigente=false;
     };
-  }, [
+  },[
     albergueId,
     paginaOpcionesAlbergue.items,
     albergueSeleccionadoCache,
     alberguesGw,
   ]);
 
-  const opcionesSelectAlbergue = useMemo(() => {
-    const lista = [...paginaOpcionesAlbergue.items];
-    if (
-      albergueId &&
-      albergueSeleccionadoCache &&
-      albergueSeleccionadoCache.id === albergueId &&
-      !lista.some((item) => item.id === albergueSeleccionadoCache.id)
+  const opcionesSelectAlbergue=useMemo(() => {
+    const lista=[...paginaOpcionesAlbergue.items];
+    if(
+      albergueId&&
+      albergueSeleccionadoCache?.id===albergueId&&
+      !lista.some((item) => item.id===albergueSeleccionadoCache.id)
     ) {
       lista.unshift(albergueSeleccionadoCache);
     }
     return lista;
-  }, [albergueId, paginaOpcionesAlbergue.items, albergueSeleccionadoCache]);
+  },[albergueId,paginaOpcionesAlbergue.items,albergueSeleccionadoCache]);
 
-  const mapaOpciones = useMemo(() => {
-    const mapa = new Map<string, AlbergueResumen>();
-    for (const item of opcionesSelectAlbergue) {
-      mapa.set(item.id, item);
+  const mapaOpciones=useMemo(() => {
+    const mapa=new Map<string,AlbergueResumen>();
+    for(const item of opcionesSelectAlbergue) {
+      mapa.set(item.id,item);
     }
     return mapa;
-  }, [opcionesSelectAlbergue]);
+  },[opcionesSelectAlbergue]);
 
   function limpiarFormulario() {
     setEditando(null);
@@ -258,16 +258,16 @@ export function GestionAdministradoresPage({
   function seleccionarParaEditar(admin: Administrador) {
     setEditando(admin);
     setFormularioAbierto(true);
-    setNombre(admin.nombre ?? "");
-    setApellido(admin.apellido ?? "");
+    setNombre(admin.nombre??"");
+    setApellido(admin.apellido??"");
     setEmail(admin.email);
     setPassword("");
-    setAlbergueId(admin.albergueId ?? "");
-    if (admin.albergueId && admin.albergueNombre) {
+    setAlbergueId(admin.albergueId??"");
+    if(admin.albergueId&&admin.albergueNombre) {
       setAlbergueSeleccionadoCache({
         id: admin.albergueId,
         nombre: admin.albergueNombre,
-        codigo: admin.codigoAlbergue ?? "",
+        codigo: admin.codigoAlbergue??"",
       });
     } else {
       setAlbergueSeleccionadoCache(null);
@@ -279,14 +279,14 @@ export function GestionAdministradoresPage({
 
   async function manejarSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (guardando) return;
+    if(guardando) return;
 
-    if (!nombre.trim() || !apellido.trim() || !email.trim()) {
+    if(!nombre.trim()||!apellido.trim()||!email.trim()) {
       setErrorFormulario("Completa nombre, apellido y correo electrónico.");
       return;
     }
 
-    if (!editando && password.length < 8) {
+    if(!editando&&password.length<8) {
       setErrorFormulario("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
@@ -296,17 +296,17 @@ export function GestionAdministradoresPage({
     setAviso("");
 
     try {
-      if (editando) {
-        await gateway.actualizar(editando.id, {
+      if(editando) {
+        await gateway.actualizar(editando.id,{
           nombre: nombre.trim(),
           apellido: apellido.trim(),
           email: email.trim(),
           active: activo,
-          ...(password ? { password } : {}),
+          ...(password? { password }:{}),
         });
 
-        if ((albergueId || null) !== editando.albergueId) {
-          await gateway.asignarAlbergue(editando.id, albergueId || null);
+        if((albergueId||null)!==editando.albergueId) {
+          await gateway.asignarAlbergue(editando.id,albergueId||null);
         }
 
         setAviso("Administrador actualizado correctamente.");
@@ -318,21 +318,130 @@ export function GestionAdministradoresPage({
           apellido: apellido.trim(),
           email: email.trim(),
           password,
-          albergueId: albergueId || null,
+          albergueId: albergueId||null,
         });
         setAviso("Administrador registrado correctamente.");
         limpiarFormulario();
         recargar();
       }
-    } catch (err: unknown) {
+    } catch(err: unknown) {
       setErrorFormulario(
         err instanceof Error
           ? err.message
-          : "No fue posible guardar el administrador."
+          :"No fue posible guardar el administrador."
       );
     } finally {
       setGuardando(false);
     }
+  }
+
+  function textoGuardar() {
+    if(guardando) { return "Guardando…"; }
+    if(editando) { return "Guardar cambios"; }
+    return "Crear administrador";
+  }
+
+  function renderizarAdministradores() {
+    if(errorCarga) {
+      return <div role="alert" className="p-6 text-center text-sm text-[#C53030]">
+        <p>{errorCarga}</p>
+        <button
+          type="button"
+          onClick={recargar}
+          className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
+        >
+          Reintentar
+        </button>
+      </div>;
+    }
+    if(cargando) { return <SkeletonBloque filas={4} etiqueta="Cargando administradores…" />; }
+    if(administradores.length===0) {
+      return <div className="p-8 text-center text-sm text-[#53636B]">
+        No hay administradores registrados con ese criterio.
+      </div>;
+    }
+    return <section
+
+
+      aria-labelledby="titulo-tabla-admins"
+      className="overflow-x-auto"
+    >
+      <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
+        <caption className="sr-only">
+          Listado de administradores de albergue
+        </caption>
+        <thead>
+          <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
+            <th scope="col" className="px-4 py-3">
+              Administrador
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Correo electrónico
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Albergue asignado
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Estado
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Acción
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#EEF2F4]">
+          {administradores.map((admin) => {
+            const nombreCompleto=
+              [admin.nombre,admin.apellido].filter(Boolean).join(" ")||
+              "Sin nombre";
+
+            const fallbackOpciones=admin.albergueId
+              ? mapaOpciones.get(admin.albergueId)
+              :null;
+
+            function nombreAlbergueAsignado() {
+              if(admin.albergueNombre) {
+                return `${admin.albergueNombre}${admin.codigoAlbergue? ` (${admin.codigoAlbergue})`:""
+                  }`;
+              }
+              if(fallbackOpciones) {
+                return `${fallbackOpciones.nombre}${fallbackOpciones.codigo
+                    ? ` (${fallbackOpciones.codigo})`
+                    :""
+                  }`;
+              }
+              return admin.albergueId??"Sin asignar";
+            }
+
+            const textoAlbergue=nombreAlbergueAsignado();
+
+            return (
+              <tr key={admin.id} className="hover:bg-[#FAFCFD]">
+                <td className="px-4 py-3 font-semibold text-[#164652]">
+                  {nombreCompleto}
+                </td>
+                <td className="px-3 py-3">{admin.email}</td>
+                <td className="px-3 py-3">{textoAlbergue}</td>
+                <td className="px-3 py-3">
+                  <EstadoBadge activo={admin.active} />
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => seleccionarParaEditar(admin)}
+                    aria-label={`Editar ${nombreCompleto}`}
+                    className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
+                  >
+                    <Pencil size={14} aria-hidden="true" />
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>;
   }
 
   return (
@@ -368,7 +477,7 @@ export function GestionAdministradoresPage({
         </div>
       </header>
 
-      {aviso && (
+      {aviso&&(
         <output className="flex items-center justify-between gap-2 border-l-4 border-[#168052] bg-[#E8F7F0] px-4 py-2.5 text-xs font-medium text-[#168052]">
           <span className="flex items-center gap-2">
             <CheckCircle2 size={16} aria-hidden="true" />
@@ -385,20 +494,20 @@ export function GestionAdministradoresPage({
       )}
 
       {/* Formulario horizontal superior */}
-      {formularioAbierto && (
+      {formularioAbierto&&(
         <section
           aria-labelledby="titulo-form-admin"
           className="border-t-2 border-[#008994] bg-white p-5 shadow-xs"
         >
           <div className="flex items-center justify-between border-b border-[#EEF2F4] pb-3">
             <div className="flex items-center gap-2">
-              {editando ? (
+              {editando? (
                 <UserCog
                   size={18}
                   aria-hidden="true"
                   className="text-[#008994]"
                 />
-              ) : (
+              ):(
                 <UserPlus
                   size={18}
                   aria-hidden="true"
@@ -409,7 +518,7 @@ export function GestionAdministradoresPage({
                 id="titulo-form-admin"
                 className="text-base font-bold text-[#164652]"
               >
-                {editando ? "Editar administrador" : "Nuevo administrador"}
+                {editando? "Editar administrador":"Nuevo administrador"}
               </h2>
             </div>
 
@@ -427,7 +536,7 @@ export function GestionAdministradoresPage({
           </div>
 
           <form onSubmit={manejarSubmit} noValidate className="mt-4 space-y-4">
-            {errorFormulario && (
+            {errorFormulario&&(
               <p
                 role="alert"
                 className="flex items-start gap-1.5 text-xs font-medium text-[#C53030]"
@@ -498,7 +607,7 @@ export function GestionAdministradoresPage({
                   htmlFor="admin-password"
                   className="mb-1 block text-xs font-semibold text-[#164652]"
                 >
-                  {editando ? "Nueva contraseña (opcional)" : "Contraseña *"}
+                  {editando? "Nueva contraseña (opcional)":"Contraseña *"}
                 </label>
                 <input
                   id="admin-password"
@@ -538,7 +647,7 @@ export function GestionAdministradoresPage({
                       aria-label="Página anterior de albergues"
                       disabled={!paginaOpcionesAlbergue.has_previous}
                       onClick={() =>
-                        setPaginaAlbergue((p) => Math.max(1, p - 1))
+                        setPaginaAlbergue((p) => Math.max(1,p-1))
                       }
                       className="inline-flex h-7 items-center border border-[#DCE6EA] bg-white px-1.5 text-xs text-[#164652] disabled:opacity-40"
                     >
@@ -548,7 +657,7 @@ export function GestionAdministradoresPage({
                       type="button"
                       aria-label="Página siguiente de albergues"
                       disabled={!paginaOpcionesAlbergue.has_next}
-                      onClick={() => setPaginaAlbergue((p) => p + 1)}
+                      onClick={() => setPaginaAlbergue((p) => p+1)}
                       className="inline-flex h-7 items-center border border-[#DCE6EA] bg-white px-1.5 text-xs text-[#164652] disabled:opacity-40"
                     >
                       <ChevronRight size={13} aria-hidden="true" />
@@ -560,12 +669,12 @@ export function GestionAdministradoresPage({
                   id="admin-albergue"
                   value={albergueId}
                   onChange={(e) => {
-                    const nuevoId = e.target.value;
+                    const nuevoId=e.target.value;
                     setAlbergueId(nuevoId);
-                    const encontrado = opcionesSelectAlbergue.find(
-                      (a) => a.id === nuevoId
+                    const encontrado=opcionesSelectAlbergue.find(
+                      (a) => a.id===nuevoId
                     );
-                    if (encontrado) {
+                    if(encontrado) {
                       setAlbergueSeleccionadoCache(encontrado);
                     }
                   }}
@@ -575,13 +684,13 @@ export function GestionAdministradoresPage({
                   {opcionesSelectAlbergue.map((alb) => (
                     <option key={alb.id} value={alb.id}>
                       {alb.nombre}
-                      {alb.codigo ? ` (${alb.codigo})` : ""}
+                      {alb.codigo? ` (${alb.codigo})`:""}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {editando && (
+              {editando&&(
                 <div>
                   <label
                     htmlFor="admin-estado"
@@ -591,8 +700,8 @@ export function GestionAdministradoresPage({
                   </label>
                   <select
                     id="admin-estado"
-                    value={activo ? "activo" : "inactivo"}
-                    onChange={(e) => setActivo(e.target.value === "activo")}
+                    value={activo? "activo":"inactivo"}
+                    onChange={(e) => setActivo(e.target.value==="activo")}
                     className={INPUT_CLS}
                   >
                     <option value="activo">Activo</option>
@@ -603,7 +712,7 @@ export function GestionAdministradoresPage({
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[#EEF2F4] pt-3">
-              {editando && (
+              {editando&&(
                 <button
                   type="button"
                   onClick={limpiarFormulario}
@@ -618,11 +727,7 @@ export function GestionAdministradoresPage({
                 disabled={guardando}
                 className="h-10 bg-[#008994] px-5 text-xs font-semibold text-white transition hover:bg-[#00747E] disabled:opacity-60"
               >
-                {guardando
-                  ? "Guardando…"
-                  : editando
-                  ? "Guardar cambios"
-                  : "Crear administrador"}
+                {textoGuardar()}
               </button>
             </div>
           </form>
@@ -667,7 +772,7 @@ export function GestionAdministradoresPage({
                 value={filtroEstadoAdmin}
                 onChange={(e) =>
                   setFiltroEstadoAdmin(
-                    e.target.value as "todos" | "activos" | "inactivos"
+                    e.target.value as "todos"|"activos"|"inactivos"
                   )
                 }
                 className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#164652] outline-none focus:border-[#008994]"
@@ -680,103 +785,7 @@ export function GestionAdministradoresPage({
           </BarraFiltrosServidor>
         </div>
 
-        {errorCarga ? (
-          <div role="alert" className="p-6 text-center text-sm text-[#C53030]">
-            <p>{errorCarga}</p>
-            <button
-              type="button"
-              onClick={recargar}
-              className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : cargando ? (
-          <SkeletonBloque filas={4} etiqueta="Cargando administradores…" />
-        ) : administradores.length === 0 ? (
-          <div className="p-8 text-center text-sm text-[#53636B]">
-            No hay administradores registrados con ese criterio.
-          </div>
-        ) : (
-          <div
-            tabIndex={0}
-            role="region"
-            aria-labelledby="titulo-tabla-admins"
-            className="overflow-x-auto"
-          >
-            <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
-              <caption className="sr-only">
-                Listado de administradores de albergue
-              </caption>
-              <thead>
-                <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
-                  <th scope="col" className="px-4 py-3">
-                    Administrador
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Correo electrónico
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Albergue asignado
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Estado
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Acción
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EEF2F4]">
-                {administradores.map((admin) => {
-                  const nombreCompleto =
-                    [admin.nombre, admin.apellido].filter(Boolean).join(" ") ||
-                    "Sin nombre";
-
-                  const fallbackOpciones = admin.albergueId
-                    ? mapaOpciones.get(admin.albergueId)
-                    : null;
-
-                  const textoAlbergue = admin.albergueNombre
-                    ? `${admin.albergueNombre}${
-                        admin.codigoAlbergue ? ` (${admin.codigoAlbergue})` : ""
-                      }`
-                    : fallbackOpciones
-                    ? `${fallbackOpciones.nombre}${
-                        fallbackOpciones.codigo
-                          ? ` (${fallbackOpciones.codigo})`
-                          : ""
-                      }`
-                    : admin.albergueId ?? "Sin asignar";
-
-                  return (
-                    <tr key={admin.id} className="hover:bg-[#FAFCFD]">
-                      <td className="px-4 py-3 font-semibold text-[#164652]">
-                        {nombreCompleto}
-                      </td>
-                      <td className="px-3 py-3">{admin.email}</td>
-                      <td className="px-3 py-3">{textoAlbergue}</td>
-                      <td className="px-3 py-3">
-                        <EstadoBadge activo={admin.active} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => seleccionarParaEditar(admin)}
-                          aria-label={`Editar ${nombreCompleto}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
-                        >
-                          <Pencil size={14} aria-hidden="true" />
-                          Editar
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {renderizarAdministradores()}
 
         <ControlesPaginacion
           pagina={paginaAdmins}

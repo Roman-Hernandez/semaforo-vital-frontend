@@ -11,7 +11,7 @@ import {
 import { PublicHeader } from "@/components/shared/PublicHeader";
 import { PublicFooter } from "@/components/shared/PublicFooter";
 
-const MODULOS_WASH = [
+const MODULOS_WASH=[
   {
     id: "agua-segura",
     titulo: "1. Abastecimiento y calidad de agua potable",
@@ -163,7 +163,7 @@ const MODULOS_WASH = [
   },
 ];
 
-const REFERENCIAS_OFICIALES = [
+const REFERENCIAS_OFICIALES=[
   {
     autores: "Asociación Esfera",
     anio: "2018",
@@ -222,8 +222,7 @@ export default function EducacionSanitariaPage() {
               y el{" "}
               <strong className="text-[#0E2E33]">
                 Ministerio de Salud y Protección Social de Colombia
-              </strong>
-              .
+              </strong>{"."}
             </p>
 
             <nav
@@ -251,7 +250,7 @@ export default function EducacionSanitariaPage() {
 
         <div className="mx-auto max-w-6xl divide-y divide-[#DCE6EA] px-4 sm:px-6 lg:px-8">
           {MODULOS_WASH.map((modulo) => {
-            const Icono = modulo.icono;
+            const Icono=modulo.icono;
             return (
               <article
                 key={modulo.id}

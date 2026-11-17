@@ -1,4 +1,4 @@
-import { crearClienteApi, type ClienteApi } from "./api-client";
+import { crearClienteApi,type ClienteApi } from "./api-client";
 import {
   construirQueryPaginada,
   mapearPagina,
@@ -6,8 +6,7 @@ import {
   type Page,
 } from "./paginacion";
 
-export type NivelRiesgoPublico = "verde" | "amarillo" | "rojo";
-export type NivelSemaforoPublico = NivelRiesgoPublico;
+export type NivelRiesgoPublico="verde"|"amarillo"|"rojo";
 
 export interface CondicionSanitariaPublica {
   readonly fecha: string;
@@ -27,12 +26,12 @@ export interface AlberguePublico {
   readonly latitud: number;
   readonly longitud: number;
   readonly capacidadInstalada: number;
-  readonly poblacionActual: number | null;
-  readonly porcentajeOcupacion: number | null;
-  readonly cuposDisponibles: number | null;
-  readonly nivelRiesgo: NivelRiesgoPublico | null;
-  readonly fechaCalculoRiesgo: string | null;
-  readonly condicionesSanitarias: CondicionSanitariaPublica | null;
+  readonly poblacionActual: number|null;
+  readonly porcentajeOcupacion: number|null;
+  readonly cuposDisponibles: number|null;
+  readonly nivelRiesgo: NivelRiesgoPublico|null;
+  readonly fechaCalculoRiesgo: string|null;
+  readonly condicionesSanitarias: CondicionSanitariaPublica|null;
 }
 
 export interface AlertaPublica {
@@ -61,15 +60,15 @@ interface AlberguePublicoApi {
     departamento: string;
     municipio: string;
     direccion: string;
-    coordenadas: { type: "Point"; coordinates: [number, number] };
+    coordenadas: { type: "Point"; coordinates: [number,number] };
   };
   capacidad_instalada: number;
-  poblacion_actual: number | null;
-  porcentaje_ocupacion: number | null;
-  cupos_disponibles: number | null;
-  nivel_riesgo: NivelRiesgoPublico | null;
-  fecha_calculo_riesgo: string | null;
-  condiciones_sanitarias: CondicionSanitariaPublicaApi | null;
+  poblacion_actual: number|null;
+  porcentaje_ocupacion: number|null;
+  cupos_disponibles: number|null;
+  nivel_riesgo: NivelRiesgoPublico|null;
+  fecha_calculo_riesgo: string|null;
+  condiciones_sanitarias: CondicionSanitariaPublicaApi|null;
 }
 
 interface AlertaPublicaApi {
@@ -92,9 +91,9 @@ export interface PublicoGateway {
 }
 
 function mapearCondicion(
-  dato: CondicionSanitariaPublicaApi | null
-): CondicionSanitariaPublica | null {
-  if (!dato) return null;
+  dato: CondicionSanitariaPublicaApi|null
+): CondicionSanitariaPublica|null {
+  if(!dato) return null;
   return {
     fecha: dato.fecha,
     aguaPotableDisponible: dato.agua_potable_disponible,
@@ -105,7 +104,7 @@ function mapearCondicion(
 }
 
 function mapearAlbergue(dato: AlberguePublicoApi): AlberguePublico {
-  const [longitud, latitud] = dato.ubicacion.coordenadas.coordinates;
+  const [longitud,latitud]=dato.ubicacion.coordenadas.coordinates;
   return {
     id: dato.id,
     codigo: dato.codigo_albergue,
@@ -139,34 +138,34 @@ function mapearAlerta(dato: AlertaPublicaApi): AlertaPublica {
 
 export function crearPublicoGateway(cliente: ClienteApi): PublicoGateway {
   return {
-    async listarAlbergues(consulta = {}) {
-      const query = construirQueryPaginada(consulta);
-      const pagina = await cliente.solicitar<Page<AlberguePublicoApi>>(
+    async listarAlbergues(consulta={}) {
+      const query=construirQueryPaginada(consulta);
+      const pagina=await cliente.solicitar<Page<AlberguePublicoApi>>(
         `/api/v1/publico/albergues${query}`
       );
-      return mapearPagina(pagina, mapearAlbergue);
+      return mapearPagina(pagina,mapearAlbergue);
     },
-    async listarAlertas(consulta = {}) {
-      const query = construirQueryPaginada(consulta);
-      const pagina = await cliente.solicitar<Page<AlertaPublicaApi>>(
+    async listarAlertas(consulta={}) {
+      const query=construirQueryPaginada(consulta);
+      const pagina=await cliente.solicitar<Page<AlertaPublicaApi>>(
         `/api/v1/publico/alertas${query}`
       );
-      return mapearPagina(pagina, mapearAlerta);
+      return mapearPagina(pagina,mapearAlerta);
     },
-    async listarAlertasAlbergue(id, consulta = {}) {
-      const query = construirQueryPaginada(consulta);
-      const pagina = await cliente.solicitar<Page<AlertaPublicaApi>>(
+    async listarAlertasAlbergue(id,consulta={}) {
+      const query=construirQueryPaginada(consulta);
+      const pagina=await cliente.solicitar<Page<AlertaPublicaApi>>(
         `/api/v1/publico/albergues/${encodeURIComponent(id)}/alertas${query}`
       );
-      return mapearPagina(pagina, mapearAlerta);
+      return mapearPagina(pagina,mapearAlerta);
     },
   };
 }
 
 export function obtenerPublicoGateway(
-  baseUrl: string = process.env.NEXT_PUBLIC_API_URL ?? ""
+  baseUrl: string=process.env.NEXT_PUBLIC_API_URL??""
 ): PublicoGateway {
-  return crearPublicoGateway(crearClienteApi(baseUrl, () => null));
+  return crearPublicoGateway(crearClienteApi(baseUrl,() => null));
 }
 
-export const publicoGateway: PublicoGateway = obtenerPublicoGateway();
+export const publicoGateway: PublicoGateway=obtenerPublicoGateway();

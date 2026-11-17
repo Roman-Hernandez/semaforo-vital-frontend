@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo,useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -44,7 +44,7 @@ export interface HomePageProps {
 const ETIQUETA_SEMAFORO: Record<
   NivelRiesgoPublico,
   { texto: string; clase: string; barra: string }
-> = {
+>={
   verde: {
     texto: "Riesgo bajo",
     clase: "bg-[#E2F5EB] text-[#146C43]",
@@ -65,16 +65,16 @@ const ETIQUETA_SEMAFORO: Record<
 function SemaforoTag({
   nivel,
 }: {
-  readonly nivel: NivelRiesgoPublico | null;
+  readonly nivel: NivelRiesgoPublico|null;
 }) {
-  if (!nivel) {
+  if(!nivel) {
     return (
       <span className="inline-flex items-center bg-[#EEF3F4] px-2.5 py-1 text-xs font-semibold text-[#53636B]">
         Sin evaluar
       </span>
     );
   }
-  const config = ETIQUETA_SEMAFORO[nivel];
+  const config=ETIQUETA_SEMAFORO[nivel];
   return (
     <span
       className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold ${config.clase}`}
@@ -229,9 +229,9 @@ function IlustracionAlbergueHero() {
 
 export default function HomePage({
   gateway: gatewayInyectado,
-}: HomePageProps = {}) {
-  const [gateway] = useState<PublicoGateway>(
-    () => gatewayInyectado ?? publicoGateway
+}: HomePageProps={}) {
+  const [gateway]=useState<PublicoGateway>(
+    () => gatewayInyectado??publicoGateway
   );
 
   // Listado paginado de albergues públicos
@@ -249,7 +249,7 @@ export default function HomePage({
     setDesde: setDesdeAlbergues,
     setHasta: setHastaAlbergues,
     limpiarFiltros: limpiarFiltrosAlbergues,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) => gateway.listarAlbergues(consulta),
     sincronizarUrl: true,
     prefijoUrl: "alb",
@@ -257,9 +257,15 @@ export default function HomePage({
   });
 
   // Listado paginado de alertas públicas
-  const [filtroActivaAlerta, setFiltroActivaAlerta] = useState<
-    "todas" | "activas" | "inactivas"
+  const [filtroActivaAlerta,setFiltroActivaAlerta]=useState<
+    "todas"|"activas"|"inactivas"
   >("activas");
+
+  function valorFiltroAlerta() {
+    if(filtroActivaAlerta==="activas") { return true; }
+    if(filtroActivaAlerta==="inactivas") { return false; }
+    return undefined;
+  }
 
   const {
     datos: paginaAlertas,
@@ -275,16 +281,12 @@ export default function HomePage({
     setDesde: setDesdeAlertas,
     setHasta: setHastaAlertas,
     limpiarFiltros: limpiarFiltrosAlertas,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) =>
       gateway.listarAlertas({
         ...consulta,
         activa:
-          filtroActivaAlerta === "activas"
-            ? true
-            : filtroActivaAlerta === "inactivas"
-            ? false
-            : undefined,
+          valorFiltroAlerta(),
       }),
     claveExtra: filtroActivaAlerta,
     sincronizarUrl: true,
@@ -292,54 +294,245 @@ export default function HomePage({
     mensajeErrorDefecto: "No fue posible consultar las alertas públicas.",
   });
 
-  const [filtroNivel, setFiltroNivel] = useState<
-    "todos" | NivelRiesgoPublico
+  const [filtroNivel,setFiltroNivel]=useState<
+    "todos"|NivelRiesgoPublico
   >("todos");
-  const [albergueDetalleId, setAlbergueDetalleId] = useState<string | null>(
+  const [albergueDetalleId,setAlbergueDetalleId]=useState<string|null>(
     null
   );
-  const [alertasAlbergue, setAlertasAlbergue] = useState<
-    Record<string, Page<AlertaPublica>>
+  const [alertasAlbergue,setAlertasAlbergue]=useState<
+    Record<string,Page<AlertaPublica>>
   >({});
 
-  const conteoRiesgo = useMemo(() => {
-    let bajo = 0;
-    let medio = 0;
-    let critico = 0;
-    for (const item of albergues) {
-      if (item.nivelRiesgo === "verde") bajo += 1;
-      else if (item.nivelRiesgo === "amarillo") medio += 1;
-      else if (item.nivelRiesgo === "rojo") critico += 1;
+  const conteoRiesgo=useMemo(() => {
+    let bajo=0;
+    let medio=0;
+    let critico=0;
+    for(const item of albergues) {
+      if(item.nivelRiesgo==="verde") bajo+=1;
+      else if(item.nivelRiesgo==="amarillo") medio+=1;
+      else if(item.nivelRiesgo==="rojo") critico+=1;
     }
-    return { bajo, medio, critico };
-  }, [albergues]);
+    return { bajo,medio,critico };
+  },[albergues]);
 
-  const alberguesFiltrados = useMemo(() => {
-    if (filtroNivel === "todos") return albergues;
-    return albergues.filter((alb) => alb.nivelRiesgo === filtroNivel);
-  }, [albergues, filtroNivel]);
+  const alberguesFiltrados=useMemo(() => {
+    if(filtroNivel==="todos") return albergues;
+    return albergues.filter((alb) => alb.nivelRiesgo===filtroNivel);
+  },[albergues,filtroNivel]);
 
   async function alternarDetalle(albergueId: string) {
-    if (albergueDetalleId === albergueId) {
+    if(albergueDetalleId===albergueId) {
       setAlbergueDetalleId(null);
       return;
     }
     setAlbergueDetalleId(albergueId);
-    if (!alertasAlbergue[albergueId]) {
+    if(!alertasAlbergue[albergueId]) {
       try {
-        const pagina = await gateway.listarAlertasAlbergue(albergueId, {
+        const pagina=await gateway.listarAlertasAlbergue(albergueId,{
           page: 1,
           page_size: 10,
           activa: true,
         });
-        setAlertasAlbergue((prev) => ({ ...prev, [albergueId]: pagina }));
+        setAlertasAlbergue((prev) => ({ ...prev,[albergueId]: pagina }));
       } catch {
         // Silencioso en detalle secundario
       }
     }
   }
 
-  const errorGeneral = errorAlbergues || errorAlertas || null;
+  const errorGeneral=errorAlbergues||errorAlertas||null;
+
+  function renderizarAlbergues() {
+    if(cargandoAlbergues) { return <SkeletonTarjetasAlbergues />; }
+    if(alberguesFiltrados.length===0) {
+      return <p className="bg-white p-8 text-sm text-[#4C666B]">
+        No se encontraron albergues con los filtros seleccionados.
+      </p>;
+    }
+    return <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {alberguesFiltrados.map((alb) => {
+        const abierto=albergueDetalleId===alb.id;
+        const paginaAlertasDeEste=alertasAlbergue[alb.id];
+        const alertasDeEste=paginaAlertasDeEste?.items??[];
+        const barraColor=alb.nivelRiesgo
+          ? ETIQUETA_SEMAFORO[alb.nivelRiesgo].barra
+          :"bg-[#047270]";
+
+        return (
+          <article
+            key={alb.id}
+            className="anim-interactivo flex flex-col justify-between border-t-4 border-t-[#047270] bg-white p-6 shadow-xs"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-[#0A252A]">
+                    {alb.nombre}
+                  </h3>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-[#4C666B]">
+                    <MapPin
+                      size={13}
+                      aria-hidden="true"
+                      className="shrink-0 text-[#047270]"
+                    />
+                    <span>
+                      {alb.municipio}, {alb.departamento}
+                    </span>
+                  </p>
+                </div>
+                <SemaforoTag nivel={alb.nivelRiesgo} />
+              </div>
+
+              <p className="mt-2 text-xs text-[#5E767A]">
+                {alb.direccion}
+              </p>
+
+              <div className="mt-5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#4C666B]">Ocupación</span>
+                  <span className="font-bold text-[#0A252A]">
+                    {alb.poblacionActual===null
+                      ? `Sin dato de población · Capacidad: ${alb.capacidadInstalada}`
+                      :`${alb.poblacionActual} / ${alb.capacidadInstalada} (${alb.porcentajeOcupacion??0}%)`}
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden bg-[#EAF1F0]">
+                  <div
+                    className={`h-full transition-all ${barraColor}`}
+                    style={{
+                      width: `${Math.min(100,alb.porcentajeOcupacion??0)}%`,
+                    }}
+                  />
+                </div>
+                {alb.cuposDisponibles!==null&&(
+                  <p className="mt-1.5 text-xs text-[#4C666B]">
+                    Cupos disponibles:{" "}
+                    <strong className="text-[#0E2E33]">
+                      {alb.cuposDisponibles}
+                    </strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-[#EBF1F0] pt-3">
+              <button
+                type="button"
+                onClick={() => alternarDetalle(alb.id)}
+                aria-expanded={abierto}
+                className="flex w-full items-center justify-between text-xs font-semibold text-[#047270] hover:text-[#035B59]"
+              >
+                <span>
+                  {abierto
+                    ? "Ocultar condiciones sanitarias"
+                    :"Ver condiciones sanitarias"}
+                </span>
+                {abierto? (
+                  <ChevronUp size={15} aria-hidden="true" />
+                ):(
+                  <ChevronDown size={15} aria-hidden="true" />
+                )}
+              </button>
+
+              {abierto&&(
+                <div className="anim-entrada mt-3 space-y-2 bg-[#F6FAF9] p-3.5 text-xs text-[#0E2E33]">
+                  {alb.condicionesSanitarias? (
+                    <dl className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <dt className="text-[#5E767A]">Agua potable</dt>
+                        <dd className="font-semibold">
+                          {alb.condicionesSanitarias
+                            .aguaPotableDisponible
+                            ? "Disponible"
+                            :"Sin suministro"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#5E767A]">Baños</dt>
+                        <dd className="font-semibold">
+                          {alb.condicionesSanitarias.banosDisponibles}{" "}
+                          disponibles
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#5E767A]">Higiene</dt>
+                        <dd className="font-semibold">
+                          {alb.condicionesSanitarias.estadoHigiene}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#5E767A]">Saneamiento</dt>
+                        <dd className="font-semibold">
+                          {alb.condicionesSanitarias.estadoSaneamiento}
+                        </dd>
+                      </div>
+                    </dl>
+                  ):(
+                    <p className="text-[#5E767A]">
+                      Sin reporte sanitario registrado recientemente.
+                    </p>
+                  )}
+
+                  {alertasDeEste.length>0&&(
+                    <div className="border-t border-[#DCE6EA] pt-2">
+                      <p className="font-semibold text-[#B02A30]">
+                        Alertas vigentes (
+                        {paginaAlertasDeEste?.total??
+                          alertasDeEste.length}
+                        ):
+                      </p>
+                      <ul className="mt-1 list-disc space-y-1 pl-4 text-[#4C666B]">
+                        {alertasDeEste.map((alerta) => (
+                          <li key={alerta.id}>{alerta.mensaje}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>;
+  }
+
+  function renderizarAlertas() {
+    if(cargandoAlertas) { return <SkeletonBloque filas={3} etiqueta="Cargando alertas activas…" />; }
+    if(alertas.length===0) {
+      return <p className="bg-white p-6 text-sm text-[#4C666B]">
+        No hay alertas sanitarias críticas para los criterios seleccionados.
+      </p>;
+    }
+    return <ul className="divide-y divide-[#E4ECEE] bg-white">
+      {alertas.map((alerta) => {
+        const alb=albergues.find((a) => a.id===alerta.albergueId);
+        return (
+          <li
+            key={alerta.id}
+            className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center"
+          >
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <SemaforoTag nivel={alerta.nivelRiesgo} />
+                <span className="text-xs font-bold text-[#0A252A]">
+                  {alb? alb.nombre:"Albergue registrado"}
+                </span>
+                <span className="text-xs text-[#5E767A]">
+                  · {alerta.tipoAlerta}
+                </span>
+              </div>
+              <p className="text-sm text-[#375257]">{alerta.mensaje}</p>
+            </div>
+            <time className="shrink-0 text-xs text-[#5E767A]">
+              {alerta.fechaAlerta.slice(0,10)}
+            </time>
+          </li>
+        );
+      })}
+    </ul>;
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFCFB] text-[#0E2E33]">
@@ -406,7 +599,7 @@ export default function HomePage({
                 </span>
                 <div>
                   <dd className="text-2xl font-extrabold text-[#0A252A]">
-                    {cargandoAlbergues ? "—" : conteoRiesgo.bajo}
+                    {cargandoAlbergues? "—":conteoRiesgo.bajo}
                   </dd>
                   <dt className="text-xs font-medium text-[#4C666B]">
                     Albergues en riesgo bajo (página actual)
@@ -424,7 +617,7 @@ export default function HomePage({
                 </span>
                 <div>
                   <dd className="text-2xl font-extrabold text-[#0A252A]">
-                    {cargandoAlbergues ? "—" : conteoRiesgo.medio}
+                    {cargandoAlbergues? "—":conteoRiesgo.medio}
                   </dd>
                   <dt className="text-xs font-medium text-[#4C666B]">
                     Albergues en riesgo medio (página actual)
@@ -443,7 +636,7 @@ export default function HomePage({
                 </span>
                 <div>
                   <dd className="text-2xl font-extrabold text-[#0A252A]">
-                    {cargandoAlbergues ? "—" : conteoRiesgo.critico}
+                    {cargandoAlbergues? "—":conteoRiesgo.critico}
                   </dd>
                   <dt className="text-xs font-medium text-[#4C666B]">
                     Albergues en riesgo crítico (página actual)
@@ -505,7 +698,7 @@ export default function HomePage({
           </div>
         </section>
 
-        {errorGeneral && (
+        {errorGeneral&&(
           <div className="mx-auto mt-8 max-w-6xl px-4 sm:px-6 lg:px-8">
             <div
               role="alert"
@@ -553,7 +746,7 @@ export default function HomePage({
               <input
                 type="date"
                 aria-label="Albergues desde fecha"
-                max={hastaAlbergues || undefined}
+                max={hastaAlbergues||undefined}
                 value={desdeAlbergues}
                 onChange={(e) => setDesdeAlbergues(e.target.value)}
                 className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#0E2E33] outline-none focus:border-[#047270]"
@@ -562,7 +755,7 @@ export default function HomePage({
               <input
                 type="date"
                 aria-label="Albergues hasta fecha"
-                min={desdeAlbergues || undefined}
+                min={desdeAlbergues||undefined}
                 value={hastaAlbergues}
                 onChange={(e) => setHastaAlbergues(e.target.value)}
                 className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#0E2E33] outline-none focus:border-[#047270]"
@@ -572,7 +765,7 @@ export default function HomePage({
                 value={filtroNivel}
                 onChange={(e) =>
                   setFiltroNivel(
-                    e.target.value as "todos" | NivelRiesgoPublico
+                    e.target.value as "todos"|NivelRiesgoPublico
                   )
                 }
                 aria-label="Filtrar por nivel de riesgo"
@@ -584,179 +777,26 @@ export default function HomePage({
                 <option value="rojo">Riesgo crítico</option>
               </select>
 
-              {(busquedaAlbergues.trim() ||
-                desdeAlbergues ||
-                hastaAlbergues ||
-                filtroNivel !== "todos") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFiltroNivel("todos");
-                    limpiarFiltrosAlbergues();
-                  }}
-                  className="inline-flex h-9 items-center gap-1 border border-[#DCE6EA] bg-white px-3 text-xs font-semibold text-[#0E2E33]"
-                >
-                  <RotateCcw size={13} aria-hidden="true" />
-                  <span>Limpiar</span>
-                </button>
-              )}
+              {(busquedaAlbergues.trim()||
+                desdeAlbergues||
+                hastaAlbergues||
+                filtroNivel!=="todos")&&(
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroNivel("todos");
+                      limpiarFiltrosAlbergues();
+                    }}
+                    className="inline-flex h-9 items-center gap-1 border border-[#DCE6EA] bg-white px-3 text-xs font-semibold text-[#0E2E33]"
+                  >
+                    <RotateCcw size={13} aria-hidden="true" />
+                    <span>Limpiar</span>
+                  </button>
+                )}
             </div>
           </div>
 
-          {cargandoAlbergues ? (
-            <SkeletonTarjetasAlbergues />
-          ) : alberguesFiltrados.length === 0 ? (
-            <p className="bg-white p-8 text-sm text-[#4C666B]">
-              No se encontraron albergues con los filtros seleccionados.
-            </p>
-          ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {alberguesFiltrados.map((alb) => {
-                const abierto = albergueDetalleId === alb.id;
-                const paginaAlertasDeEste = alertasAlbergue[alb.id];
-                const alertasDeEste = paginaAlertasDeEste?.items ?? [];
-                const barraColor = alb.nivelRiesgo
-                  ? ETIQUETA_SEMAFORO[alb.nivelRiesgo].barra
-                  : "bg-[#047270]";
-
-                return (
-                  <article
-                    key={alb.id}
-                    className="anim-interactivo flex flex-col justify-between border-t-4 border-t-[#047270] bg-white p-6 shadow-xs"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-bold text-[#0A252A]">
-                            {alb.nombre}
-                          </h3>
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-[#4C666B]">
-                            <MapPin
-                              size={13}
-                              aria-hidden="true"
-                              className="shrink-0 text-[#047270]"
-                            />
-                            <span>
-                              {alb.municipio}, {alb.departamento}
-                            </span>
-                          </p>
-                        </div>
-                        <SemaforoTag nivel={alb.nivelRiesgo} />
-                      </div>
-
-                      <p className="mt-2 text-xs text-[#5E767A]">
-                        {alb.direccion}
-                      </p>
-
-                      <div className="mt-5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#4C666B]">Ocupación</span>
-                          <span className="font-bold text-[#0A252A]">
-                            {alb.poblacionActual === null
-                              ? `Sin dato de población · Capacidad: ${alb.capacidadInstalada}`
-                              : `${alb.poblacionActual} / ${alb.capacidadInstalada} (${alb.porcentajeOcupacion ?? 0}%)`}
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden bg-[#EAF1F0]">
-                          <div
-                            className={`h-full transition-all ${barraColor}`}
-                            style={{
-                              width: `${Math.min(100, alb.porcentajeOcupacion ?? 0)}%`,
-                            }}
-                          />
-                        </div>
-                        {alb.cuposDisponibles !== null && (
-                          <p className="mt-1.5 text-xs text-[#4C666B]">
-                            Cupos disponibles:{" "}
-                            <strong className="text-[#0E2E33]">
-                              {alb.cuposDisponibles}
-                            </strong>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-5 border-t border-[#EBF1F0] pt-3">
-                      <button
-                        type="button"
-                        onClick={() => alternarDetalle(alb.id)}
-                        aria-expanded={abierto}
-                        className="flex w-full items-center justify-between text-xs font-semibold text-[#047270] hover:text-[#035B59]"
-                      >
-                        <span>
-                          {abierto
-                            ? "Ocultar condiciones sanitarias"
-                            : "Ver condiciones sanitarias"}
-                        </span>
-                        {abierto ? (
-                          <ChevronUp size={15} aria-hidden="true" />
-                        ) : (
-                          <ChevronDown size={15} aria-hidden="true" />
-                        )}
-                      </button>
-
-                      {abierto && (
-                        <div className="anim-entrada mt-3 space-y-2 bg-[#F6FAF9] p-3.5 text-xs text-[#0E2E33]">
-                          {alb.condicionesSanitarias ? (
-                            <dl className="grid grid-cols-2 gap-2.5">
-                              <div>
-                                <dt className="text-[#5E767A]">Agua potable</dt>
-                                <dd className="font-semibold">
-                                  {alb.condicionesSanitarias
-                                    .aguaPotableDisponible
-                                    ? "Disponible"
-                                    : "Sin suministro"}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="text-[#5E767A]">Baños</dt>
-                                <dd className="font-semibold">
-                                  {alb.condicionesSanitarias.banosDisponibles}{" "}
-                                  disponibles
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="text-[#5E767A]">Higiene</dt>
-                                <dd className="font-semibold">
-                                  {alb.condicionesSanitarias.estadoHigiene}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="text-[#5E767A]">Saneamiento</dt>
-                                <dd className="font-semibold">
-                                  {alb.condicionesSanitarias.estadoSaneamiento}
-                                </dd>
-                              </div>
-                            </dl>
-                          ) : (
-                            <p className="text-[#5E767A]">
-                              Sin reporte sanitario registrado recientemente.
-                            </p>
-                          )}
-
-                          {alertasDeEste.length > 0 && (
-                            <div className="border-t border-[#DCE6EA] pt-2">
-                              <p className="font-semibold text-[#B02A30]">
-                                Alertas vigentes (
-                                {paginaAlertasDeEste?.total ??
-                                  alertasDeEste.length}
-                                ):
-                              </p>
-                              <ul className="mt-1 list-disc space-y-1 pl-4 text-[#4C666B]">
-                                {alertasDeEste.map((alerta) => (
-                                  <li key={alerta.id}>{alerta.mensaje}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+          {renderizarAlbergues()}
 
           <div className="mt-6 bg-white shadow-xs">
             <ControlesPaginacion
@@ -787,18 +827,18 @@ export default function HomePage({
               <span className="text-xs font-medium text-[#375257]">
                 Mostrando {alberguesFiltrados.length} de {paginaAlbergues.total}{" "}
                 albergues habilitados
-                {paginaAlbergues.total_pages > 0
+                {paginaAlbergues.total_pages>0
                   ? ` · Página ${paginaAlbergues.page} de ${paginaAlbergues.total_pages}`
-                  : ""}
+                  :""}
               </span>
             </div>
 
-            {cargandoAlbergues ? (
+            {cargandoAlbergues? (
               <SkeletonBloque
                 filas={4}
                 etiqueta="Cargando mapa de albergues…"
               />
-            ) : (
+            ):(
               <MapaAlbergues
                 albergues={alberguesFiltrados}
                 totalAlbergues={paginaAlbergues.total}
@@ -854,7 +894,7 @@ export default function HomePage({
                   value={filtroActivaAlerta}
                   onChange={(e) =>
                     setFiltroActivaAlerta(
-                      e.target.value as "todas" | "activas" | "inactivas"
+                      e.target.value as "todas"|"activas"|"inactivas"
                     )
                   }
                   className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#164652] outline-none focus:border-[#047270]"
@@ -867,41 +907,7 @@ export default function HomePage({
             </BarraFiltrosServidor>
           </div>
 
-          {cargandoAlertas ? (
-            <SkeletonBloque filas={3} etiqueta="Cargando alertas activas…" />
-          ) : alertas.length === 0 ? (
-            <p className="bg-white p-6 text-sm text-[#4C666B]">
-              No hay alertas sanitarias críticas para los criterios seleccionados.
-            </p>
-          ) : (
-            <ul className="divide-y divide-[#E4ECEE] bg-white">
-              {alertas.map((alerta) => {
-                const alb = albergues.find((a) => a.id === alerta.albergueId);
-                return (
-                  <li
-                    key={alerta.id}
-                    className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <SemaforoTag nivel={alerta.nivelRiesgo} />
-                        <span className="text-xs font-bold text-[#0A252A]">
-                          {alb ? alb.nombre : "Albergue registrado"}
-                        </span>
-                        <span className="text-xs text-[#5E767A]">
-                          · {alerta.tipoAlerta}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#375257]">{alerta.mensaje}</p>
-                    </div>
-                    <time className="shrink-0 text-xs text-[#5E767A]">
-                      {alerta.fechaAlerta.slice(0, 10)}
-                    </time>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {renderizarAlertas()}
 
           <div className="bg-white shadow-xs">
             <ControlesPaginacion

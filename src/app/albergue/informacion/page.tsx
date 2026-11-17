@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState,type SyntheticEvent } from "react";
 import { miAlbergueGateway } from "@/layers/application/services/mi-albergue-service";
 import {
   albergueAFormulario,
@@ -14,11 +14,11 @@ import { EstadoBadge } from "@/layers/presentation/components/albergues/insignia
 import { SelectorCoordenadasMapa } from "@/components/shared/SelectorCoordenadasMapa";
 import { SkeletonBloque } from "@/components/shared/Skeleton";
 
-const campos = [
-  ["capacidadInstalada", "Capacidad máxima", "number"],
-  ["departamento", "Departamento", "text"],
-  ["municipio", "Municipio", "text"],
-  ["direccion", "Dirección", "text"],
+const campos=[
+  ["capacidadInstalada","Capacidad máxima","number"],
+  ["departamento","Departamento","text"],
+  ["municipio","Municipio","text"],
+  ["direccion","Dirección","text"],
 ] as const;
 
 function Formulario({
@@ -30,28 +30,28 @@ function Formulario({
   readonly onGuardar: (albergue: Albergue) => void;
   readonly onCancelar: () => void;
 }) {
-  const [form, setForm] = useState<AlbergueFormulario>(() =>
+  const [form,setForm]=useState<AlbergueFormulario>(() =>
     albergueAFormulario(albergue)
   );
-  const [errores, setErrores] = useState<ReturnType<typeof validarAlbergue>>({});
-  const [error, setError] = useState("");
-  const [guardando, setGuardando] = useState(false);
+  const [errores,setErrores]=useState<ReturnType<typeof validarAlbergue>>({});
+  const [error,setError]=useState("");
+  const [guardando,setGuardando]=useState(false);
 
-  async function guardar(event: FormEvent) {
+  async function guardar(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (guardando) return;
-    const validacion = validarAlbergue(form);
+    if(guardando) return;
+    const validacion=validarAlbergue(form);
     delete validacion.nombre;
     delete validacion.codigo;
     setErrores(validacion);
-    if (Object.keys(validacion).length) return;
+    if(Object.keys(validacion).length) return;
     setGuardando(true);
     setError("");
     try {
       onGuardar(await miAlbergueGateway.actualizar(formularioAEntrada(form)));
-    } catch (err: unknown) {
+    } catch(err: unknown) {
       setError(
-        err instanceof Error ? err.message : "No fue posible guardar los cambios."
+        err instanceof Error? err.message:"No fue posible guardar los cambios."
       );
     } finally {
       setGuardando(false);
@@ -68,7 +68,7 @@ function Formulario({
       <h2 className="text-base font-bold text-[#164652]">Editar información</h2>
       <fieldset disabled={guardando} className="grid gap-4 sm:grid-cols-2">
         <legend className="sr-only">Ubicación y capacidad del albergue</legend>
-        {campos.map(([campo, label, type]) => (
+        {campos.map(([campo,label,type]) => (
           <div key={campo}>
             <label
               htmlFor={`albergue-${campo}`}
@@ -81,16 +81,16 @@ function Formulario({
               type={type}
               value={String(form[campo])}
               required
-              min={type === "number" ? 1 : undefined}
-              step={type === "number" ? 1 : undefined}
+              min={type==="number"? 1:undefined}
+              step={type==="number"? 1:undefined}
               aria-invalid={Boolean(errores[campo])}
-              aria-describedby={errores[campo] ? `error-${campo}` : undefined}
+              aria-describedby={errores[campo]? `error-${campo}`:undefined}
               onChange={(event) =>
-                setForm((actual) => ({ ...actual, [campo]: event.target.value }))
+                setForm((actual) => ({ ...actual,[campo]: event.target.value }))
               }
               className="mt-1 h-10 w-full border border-[#DCE6EA] bg-white px-3 text-sm text-[#164652] outline-none focus:border-[#008994]"
             />
-            {errores[campo] && (
+            {errores[campo]&&(
               <p id={`error-${campo}`} className="mt-1 text-xs text-[#C53030]">
                 {errores[campo]}
               </p>
@@ -104,13 +104,13 @@ function Formulario({
             errorLatitud={errores.latitud}
             errorLongitud={errores.longitud}
             disabled={guardando}
-            onChange={(latitud, longitud) => {
-              setForm((actual) => ({ ...actual, latitud, longitud }));
+            onChange={(latitud,longitud) => {
+              setForm((actual) => ({ ...actual,latitud,longitud }));
             }}
           />
         </div>
       </fieldset>
-      {error && (
+      {error&&(
         <p role="alert" className="text-xs text-[#C53030]">
           {error}
         </p>
@@ -121,7 +121,7 @@ function Formulario({
           disabled={guardando}
           className="bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E]"
         >
-          {guardando ? "Guardando…" : "Guardar cambios"}
+          {guardando? "Guardando…":"Guardar cambios"}
         </button>
         <button
           type="button"
@@ -137,9 +137,84 @@ function Formulario({
 }
 
 export default function InformacionAlberguePage() {
-  const { datos, setDatos, error, recargar } = useMiAlbergue();
-  const [editando, setEditando] = useState(false);
-  const [aviso, setAviso] = useState("");
+  const { datos,setDatos,error,recargar }=useMiAlbergue();
+  const [editando,setEditando]=useState(false);
+  const [aviso,setAviso]=useState("");
+
+  function renderizarEstado() {
+    if(error) {
+      return <div
+        role="alert"
+        className="border-l-4 border-[#C53030] bg-white p-4 text-sm text-[#C53030]"
+      >
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={recargar}
+          className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
+        >
+          Reintentar
+        </button>
+      </div>;
+    }
+    if(!datos) { return <SkeletonBloque filas={5} etiqueta="Cargando albergue…" />; }
+    return <>
+      {editando&&(
+        <Formulario
+          albergue={datos.albergue}
+          onCancelar={() => setEditando(false)}
+          onGuardar={(albergue) => {
+            setDatos({ ...datos,albergue });
+            setEditando(false);
+            setAviso("La información del albergue se actualizó correctamente.");
+          }}
+        />
+      )}
+
+      <section className="border-t-2 border-[#008994] bg-white p-6 shadow-xs">
+        <div className="flex items-start justify-between gap-3 border-b border-[#EEF2F4] pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-[#164652]">
+              {datos.albergue.nombre}
+            </h2>
+            <p className="text-xs text-[#718895]">{datos.albergue.codigo}</p>
+          </div>
+          <EstadoBadge activo={datos.albergue.activo} />
+        </div>
+
+        <dl className="mt-4 divide-y divide-[#EEF2F4] text-sm">
+          <div className="flex justify-between py-3">
+            <dt className="text-xs text-[#53636B]">Dirección</dt>
+            <dd className="font-semibold">{datos.albergue.direccion}</dd>
+          </div>
+          <div className="flex justify-between py-3">
+            <dt className="text-xs text-[#53636B]">Ubicación</dt>
+            <dd className="font-semibold">
+              {datos.albergue.municipio}, {datos.albergue.departamento}
+            </dd>
+          </div>
+          <div className="flex justify-between py-3">
+            <dt className="text-xs text-[#53636B]">Capacidad máxima</dt>
+            <dd className="font-semibold">
+              {datos.albergue.capacidadInstalada} personas
+            </dd>
+          </div>
+          <div className="flex justify-between py-3">
+            <dt className="text-xs text-[#53636B]">Administrador</dt>
+            <dd className="font-semibold">
+              {[datos.administrador.nombre,datos.administrador.apellido]
+                .filter(Boolean)
+                .join(" ")||"Nombre no registrado"}
+            </dd>
+          </div>
+          <div className="flex justify-between py-3">
+            <dt className="text-xs text-[#53636B]">Correo electrónico</dt>
+            <dd className="font-semibold">{datos.administrador.email}</dd>
+          </div>
+        </dl>
+      </section>
+    </>;
+  }
 
   return (
     <div className="anim-entrada mx-auto max-w-4xl space-y-6 text-[#164652]">
@@ -148,7 +223,7 @@ export default function InformacionAlberguePage() {
           Información del albergue
         </h1>
 
-        {datos?.albergue.activo && !editando && (
+        {datos?.albergue.activo&&!editando&&(
           <button
             type="button"
             className="self-start bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E] sm:self-auto"
@@ -162,86 +237,13 @@ export default function InformacionAlberguePage() {
         )}
       </header>
 
-      {aviso && (
+      {aviso&&(
         <output className="block border-l-4 border-[#168052] bg-white p-3 text-xs font-medium text-[#168052]">
           {aviso}
         </output>
       )}
 
-      {error ? (
-        <div
-          role="alert"
-          className="border-l-4 border-[#C53030] bg-white p-4 text-sm text-[#C53030]"
-        >
-          <p>{error}</p>
-          <button
-            type="button"
-            onClick={recargar}
-            className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : !datos ? (
-        <SkeletonBloque filas={5} etiqueta="Cargando albergue…" />
-      ) : (
-        <>
-          {editando && (
-            <Formulario
-              albergue={datos.albergue}
-              onCancelar={() => setEditando(false)}
-              onGuardar={(albergue) => {
-                setDatos({ ...datos, albergue });
-                setEditando(false);
-                setAviso("La información del albergue se actualizó correctamente.");
-              }}
-            />
-          )}
-
-          <section className="border-t-2 border-[#008994] bg-white p-6 shadow-xs">
-            <div className="flex items-start justify-between gap-3 border-b border-[#EEF2F4] pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-[#164652]">
-                  {datos.albergue.nombre}
-                </h2>
-                <p className="text-xs text-[#718895]">{datos.albergue.codigo}</p>
-              </div>
-              <EstadoBadge activo={datos.albergue.activo} />
-            </div>
-
-            <dl className="mt-4 divide-y divide-[#EEF2F4] text-sm">
-              <div className="flex justify-between py-3">
-                <dt className="text-xs text-[#53636B]">Dirección</dt>
-                <dd className="font-semibold">{datos.albergue.direccion}</dd>
-              </div>
-              <div className="flex justify-between py-3">
-                <dt className="text-xs text-[#53636B]">Ubicación</dt>
-                <dd className="font-semibold">
-                  {datos.albergue.municipio}, {datos.albergue.departamento}
-                </dd>
-              </div>
-              <div className="flex justify-between py-3">
-                <dt className="text-xs text-[#53636B]">Capacidad máxima</dt>
-                <dd className="font-semibold">
-                  {datos.albergue.capacidadInstalada} personas
-                </dd>
-              </div>
-              <div className="flex justify-between py-3">
-                <dt className="text-xs text-[#53636B]">Administrador</dt>
-                <dd className="font-semibold">
-                  {[datos.administrador.nombre, datos.administrador.apellido]
-                    .filter(Boolean)
-                    .join(" ") || "Nombre no registrado"}
-                </dd>
-              </div>
-              <div className="flex justify-between py-3">
-                <dt className="text-xs text-[#53636B]">Correo electrónico</dt>
-                <dd className="font-semibold">{datos.administrador.email}</dd>
-              </div>
-            </dl>
-          </section>
-        </>
-      )}
+      {renderizarEstado()}
     </div>
   );
 }

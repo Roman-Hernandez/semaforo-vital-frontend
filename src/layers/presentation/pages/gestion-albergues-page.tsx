@@ -9,7 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { CheckCircle2, Lock, Plus, RefreshCw, X } from "lucide-react";
+import { CheckCircle2,Lock,Plus,RefreshCw,X } from "lucide-react";
 import {
   formularioAEntrada,
   type Albergue,
@@ -46,29 +46,29 @@ import {
   type ModoPanel,
 } from "@/layers/presentation/components/albergues/albergue-panel";
 
-export const ALBERGUES_POR_PAGINA = TAMANO_PAGINA_PREDETERMINADO;
+export { TAMANO_PAGINA_PREDETERMINADO as ALBERGUES_POR_PAGINA } from "@/layers/application/services/paginacion";
 
 interface GestionAlberguesPageProps {
   readonly gateway?: AlberguesGateway;
   readonly sesion?: Sesion;
 }
 
-function useSesion(sesionFija?: Sesion): Sesion | undefined {
-  const token = useSyncExternalStore(
+function useSesion(sesionFija?: Sesion): Sesion|undefined {
+  const token=useSyncExternalStore(
     suscribirSesion,
-    () => leerToken() ?? "",
+    () => leerToken()??"",
     () => undefined
   );
 
   return useMemo(() => {
-    if (sesionFija) return sesionFija;
-    if (token === undefined) return undefined;
-    return obtenerSesion(token || null);
-  }, [sesionFija, token]);
+    if(sesionFija) return sesionFija;
+    if(token===undefined) return undefined;
+    return obtenerSesion(token||null);
+  },[sesionFija,token]);
 }
 
 function horaActual(): string {
-  return new Intl.DateTimeFormat("es-CO", {
+  return new Intl.DateTimeFormat("es-CO",{
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Bogota",
@@ -80,16 +80,16 @@ function ResumenGlobal({
 }: {
   readonly resumen: ResumenAlberguesGlobal;
 }) {
-  const inactivos = Math.max(
+  const inactivos=Math.max(
     0,
-    resumen.totalRegistrados - resumen.totalActivos
+    resumen.totalRegistrados-resumen.totalActivos
   );
-  const sinAdmin = Math.max(
+  const sinAdmin=Math.max(
     0,
-    resumen.totalRegistrados - resumen.conAdministrador
+    resumen.totalRegistrados-resumen.conAdministrador
   );
 
-  const tarjetas = [
+  const tarjetas=[
     {
       etiqueta: "Albergues registrados",
       valor: String(resumen.totalRegistrados),
@@ -108,14 +108,13 @@ function ResumenGlobal({
     {
       etiqueta: "Población alojada",
       valor:
-        resumen.poblacionActual === null
+        resumen.poblacionActual===null
           ? "Sin dato completo"
-          : resumen.poblacionActual.toLocaleString("es-CO"),
-      detalle: `${
-        resumen.porcentajeOcupacion === null
+          :resumen.poblacionActual.toLocaleString("es-CO"),
+      detalle: `${resumen.porcentajeOcupacion===null
           ? "Ocupación sin dato"
-          : `${Math.round(resumen.porcentajeOcupacion)}% ocupación`
-      } · ${resumen.alberguesSinPoblacion} sin reporte`,
+          :`${Math.round(resumen.porcentajeOcupacion)}% ocupación`
+        } · ${resumen.alberguesSinPoblacion} sin reporte`,
     },
   ];
 
@@ -170,97 +169,99 @@ export function GestionAlberguesPage({
   gateway: gatewayInyectado,
   sesion: sesionFija,
 }: GestionAlberguesPageProps) {
-  const sesion = useSesion(sesionFija);
-  const [gateway] = useState<AlberguesGateway>(
-    () => gatewayInyectado ?? obtenerAlberguesGateway(leerToken)
+  const sesion=useSesion(sesionFija);
+  const [gateway]=useState<AlberguesGateway>(
+    () => gatewayInyectado??obtenerAlberguesGateway(leerToken)
   );
 
-  const [paginaDatos, setPaginaDatos] = useState<Page<Albergue>>(() =>
-    paginaVacia<Albergue>(1, TAMANO_PAGINA_PREDETERMINADO)
+  const [paginaDatos,setPaginaDatos]=useState<Page<Albergue>>(() =>
+    paginaVacia<Albergue>(1,TAMANO_PAGINA_PREDETERMINADO)
   );
-  const [resumenGlobal, setResumenGlobal] =
-    useState<ResumenAlberguesGlobal | null>(null);
-  const [claveListadoResuelta, setClaveListadoResuelta] = useState("");
-  const [estadoCarga, setEstadoCarga] = useState<EstadoCarga>("cargando");
-  const [mensajeError, setMensajeError] = useState("");
-  const [ultimaActualizacion, setUltimaActualizacion] = useState("");
-  const [intentoCarga, setIntentoCarga] = useState(0);
+  const [resumenGlobal,setResumenGlobal]=
+    useState<ResumenAlberguesGlobal|null>(null);
+  const [claveListadoResuelta,setClaveListadoResuelta]=useState("");
+  const [estadoCarga,setEstadoCarga]=useState<EstadoCarga>("cargando");
+  const [mensajeError,setMensajeError]=useState("");
+  const [ultimaActualizacion,setUltimaActualizacion]=useState("");
+  const [intentoCarga,setIntentoCarga]=useState(0);
 
-  const [filtros, setFiltros] = useState<FiltrosAlbergues>(FILTROS_INICIALES);
-  const [pagina, setPagina] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(TAMANO_PAGINA_PREDETERMINADO);
+  const [filtros,setFiltros]=useState<FiltrosAlbergues>(FILTROS_INICIALES);
+  const [pagina,setPagina]=useState(1);
+  const [pageSize,setPageSize]=useState<number>(TAMANO_PAGINA_PREDETERMINADO);
 
-  const busquedaDebounced = useValorDebounced(filtros.busqueda);
+  const busquedaDebounced=useValorDebounced(filtros.busqueda);
 
-  const [modo, setModo] = useState<ModoPanel>("consultar");
-  const [seleccionado, setSeleccionado] = useState<Albergue | null>(null);
-  const [registrosGlobales, setRegistrosGlobales] =
-    useState<RegistrosAlbergueGlobal | null>(null);
-  const [claveRegistrosResuelta, setClaveRegistrosResuelta] = useState("");
-  const [consultaRegistros, setConsultaRegistros] = useState<ConsultaPaginada>({
+  const [modo,setModo]=useState<ModoPanel>("consultar");
+  const [seleccionado,setSeleccionado]=useState<Albergue|null>(null);
+  const [registrosGlobales,setRegistrosGlobales]=
+    useState<RegistrosAlbergueGlobal|null>(null);
+  const [claveRegistrosResuelta,setClaveRegistrosResuelta]=useState("");
+  const [consultaRegistros,setConsultaRegistros]=useState<ConsultaPaginada>({
     page: 1,
     page_size: 10,
   });
 
-  const [confirmandoEstado, setConfirmandoEstado] = useState(false);
-  const [cambiandoEstado, setCambiandoEstado] = useState(false);
-  const [errorEstado, setErrorEstado] = useState("");
-  const [aviso, setAviso] = useState("");
+  const [confirmandoEstado,setConfirmandoEstado]=useState(false);
+  const [cambiandoEstado,setCambiandoEstado]=useState(false);
+  const [errorEstado,setErrorEstado]=useState("");
+  const [aviso,setAviso]=useState("");
 
-  const secuenciaListadoRef = useRef(0);
-  const esSuperAdmin = sesion?.rol === "super_administrador";
+  const secuenciaListadoRef=useRef(0);
+  const esSuperAdmin=sesion?.rol==="super_administrador";
 
-  const cargarResumen = useCallback(() => {
-    if (!esSuperAdmin || !gateway.resumen) return;
+  const cargarResumen=useCallback(() => {
+    if(!esSuperAdmin||!gateway.resumen) return;
     gateway
       .resumen()
       .then((res) => setResumenGlobal(res))
       .catch(() => {
         // Si resumen falla se mantiene el listado operativo
       });
-  }, [esSuperAdmin, gateway]);
+  },[esSuperAdmin,gateway]);
 
   useEffect(() => {
     cargarResumen();
-  }, [cargarResumen, intentoCarga]);
+  },[cargarResumen,intentoCarga]);
 
-  const rangoFechasInvalido = Boolean(
-    filtros.desde && filtros.hasta && filtros.desde > filtros.hasta
+  const rangoFechasInvalido=Boolean(
+    filtros.desde&&filtros.hasta&&filtros.desde>filtros.hasta
   );
-  const claveListadoActiva = `${esSuperAdmin}|${pagina}|${pageSize}|${busquedaDebounced}|${filtros.estado}|${filtros.desde}|${filtros.hasta}|${intentoCarga}`;
-  const estadoCargaEfectivo: EstadoCarga =
-    !rangoFechasInvalido && claveListadoResuelta !== claveListadoActiva
+  const claveListadoActiva=`${esSuperAdmin}|${pagina}|${pageSize}|${busquedaDebounced}|${filtros.estado}|${filtros.desde}|${filtros.hasta}|${intentoCarga}`;
+  const estadoCargaEfectivo: EstadoCarga=
+    !rangoFechasInvalido&&claveListadoResuelta!==claveListadoActiva
       ? "cargando"
-      : estadoCarga;
+      :estadoCarga;
 
   useEffect(() => {
-    if (!esSuperAdmin || rangoFechasInvalido) return;
+    if(!esSuperAdmin||rangoFechasInvalido) return;
 
-    const idPeticion = ++secuenciaListadoRef.current;
+    const idPeticion=++secuenciaListadoRef.current;
 
-    const activoParam =
-      filtros.estado === "activos"
-        ? true
-        : filtros.estado === "inactivos"
-        ? false
-        : undefined;
+    function valorFiltroActivo() {
+      if(filtros.estado==="activos") { return true; }
+      if(filtros.estado==="inactivos") { return false; }
+      return undefined;
+    }
+
+    const activoParam=
+      valorFiltroActivo();
 
     gateway
       .listar({
         page: pagina,
         page_size: pageSize,
         q: busquedaDebounced,
-        desde: filtros.desde || undefined,
-        hasta: filtros.hasta || undefined,
+        desde: filtros.desde||undefined,
+        hasta: filtros.hasta||undefined,
         activo: activoParam,
       })
       .then((datos) => {
-        if (idPeticion !== secuenciaListadoRef.current) return;
-        if (
-          datos.items.length === 0 &&
-          datos.total > 0 &&
-          datos.total_pages > 0 &&
-          pagina > datos.total_pages
+        if(idPeticion!==secuenciaListadoRef.current) return;
+        if(
+          datos.items.length===0&&
+          datos.total>0&&
+          datos.total_pages>0&&
+          pagina>datos.total_pages
         ) {
           setPagina(datos.total_pages);
           return;
@@ -271,16 +272,16 @@ export function GestionAlberguesPage({
         setUltimaActualizacion(horaActual());
       })
       .catch((error: unknown) => {
-        if (idPeticion !== secuenciaListadoRef.current) return;
+        if(idPeticion!==secuenciaListadoRef.current) return;
         setMensajeError(
           error instanceof AlberguesError
             ? error.message
-            : "Verifica tu conexión e inténtalo nuevamente."
+            :"Verifica tu conexión e inténtalo nuevamente."
         );
         setEstadoCarga("error");
         setClaveListadoResuelta(claveListadoActiva);
       });
-  }, [
+  },[
     gateway,
     esSuperAdmin,
     rangoFechasInvalido,
@@ -294,46 +295,46 @@ export function GestionAlberguesPage({
     intentoCarga,
   ]);
 
-  const seleccionadoId = seleccionado?.id ?? null;
-  const debeCargarRegistros = Boolean(
-    esSuperAdmin &&
-      seleccionadoId &&
-      modo === "consultar" &&
-      gateway.consultarRegistros
+  const seleccionadoId=seleccionado?.id??null;
+  const debeCargarRegistros=Boolean(
+    esSuperAdmin&&
+    seleccionadoId&&
+    modo==="consultar"&&
+    gateway.consultarRegistros
   );
-  const claveRegistrosActiva = `${seleccionadoId ?? ""}|${modo}|${consultaRegistros.page ?? 1}|${consultaRegistros.page_size ?? 10}|${consultaRegistros.q ?? ""}|${consultaRegistros.desde ?? ""}|${consultaRegistros.hasta ?? ""}`;
-  const cargandoRegistros =
-    debeCargarRegistros && claveRegistrosResuelta !== claveRegistrosActiva;
+  const claveRegistrosActiva=`${seleccionadoId??""}|${modo}|${consultaRegistros.page??1}|${consultaRegistros.page_size??10}|${consultaRegistros.q??""}|${consultaRegistros.desde??""}|${consultaRegistros.hasta??""}`;
+  const cargandoRegistros=
+    debeCargarRegistros&&claveRegistrosResuelta!==claveRegistrosActiva;
 
   useEffect(() => {
-    if (
-      !esSuperAdmin ||
-      !seleccionadoId ||
-      modo !== "consultar" ||
+    if(
+      !esSuperAdmin||
+      !seleccionadoId||
+      modo!=="consultar"||
       !gateway.consultarRegistros
     ) {
       return;
     }
 
-    let vigente = true;
+    let vigente=true;
 
     gateway
-      .consultarRegistros(seleccionadoId, consultaRegistros)
+      .consultarRegistros(seleccionadoId,consultaRegistros)
       .then((datos) => {
-        if (!vigente) return;
+        if(!vigente) return;
         setRegistrosGlobales(datos);
         setClaveRegistrosResuelta(claveRegistrosActiva);
       })
       .catch(() => {
-        if (!vigente) return;
+        if(!vigente) return;
         setRegistrosGlobales(null);
         setClaveRegistrosResuelta(claveRegistrosActiva);
       });
 
     return () => {
-      vigente = false;
+      vigente=false;
     };
-  }, [
+  },[
     esSuperAdmin,
     gateway,
     seleccionadoId,
@@ -342,19 +343,19 @@ export function GestionAlberguesPage({
     claveRegistrosActiva,
   ]);
 
-  const recargar = useCallback(() => {
-    setIntentoCarga((valor) => valor + 1);
-  }, []);
+  const recargar=useCallback(() => {
+    setIntentoCarga((valor) => valor+1);
+  },[]);
 
   function abrir(
-    albergue: Albergue | null,
+    albergue: Albergue|null,
     siguienteModo: ModoPanel,
-    confirmar = false
+    confirmar=false
   ) {
     setSeleccionado(albergue);
     setModo(siguienteModo);
-    if (albergue && siguienteModo === "consultar") {
-      setConsultaRegistros({ page: 1, page_size: 10 });
+    if(albergue&&siguienteModo==="consultar") {
+      setConsultaRegistros({ page: 1,page_size: 10 });
     }
     setConfirmandoEstado(confirmar);
     setErrorEstado("");
@@ -362,10 +363,10 @@ export function GestionAlberguesPage({
   }
 
   async function guardar(formulario: AlbergueFormulario) {
-    const entrada = formularioAEntrada(formulario);
+    const entrada=formularioAEntrada(formulario);
 
-    if (modo === "editar" && seleccionado) {
-      const actualizado = await gateway.actualizar(seleccionado.id, {
+    if(modo==="editar"&&seleccionado) {
+      const actualizado=await gateway.actualizar(seleccionado.id,{
         ...entrada,
         activo: seleccionado.activo,
       });
@@ -374,7 +375,7 @@ export function GestionAlberguesPage({
         `Los cambios de “${actualizado.nombre}” se guardaron correctamente.`
       );
     } else {
-      const creado = await gateway.crear(entrada);
+      const creado=await gateway.crear(entrada);
       setSeleccionado(creado);
       setFiltros(FILTROS_INICIALES);
       setPagina(1);
@@ -390,7 +391,7 @@ export function GestionAlberguesPage({
     setErrorEstado("");
 
     try {
-      const actualizado = await gateway.cambiarEstado(
+      const actualizado=await gateway.cambiarEstado(
         albergue.id,
         !albergue.activo
       );
@@ -399,14 +400,14 @@ export function GestionAlberguesPage({
       setAviso(
         actualizado.activo
           ? `“${actualizado.nombre}” fue reactivado.`
-          : `“${actualizado.nombre}” fue desactivado. Sus datos históricos siguen disponibles.`
+          :`“${actualizado.nombre}” fue desactivado. Sus datos históricos siguen disponibles.`
       );
       recargar();
-    } catch (error) {
+    } catch(error) {
       setErrorEstado(
         error instanceof AlberguesError
           ? error.message
-          : "No fue posible cambiar el estado. Inténtalo nuevamente."
+          :"No fue posible cambiar el estado. Inténtalo nuevamente."
       );
     } finally {
       setCambiandoEstado(false);
@@ -423,7 +424,7 @@ export function GestionAlberguesPage({
     setPagina(1);
   }
 
-  if (sesion === undefined) {
+  if(sesion===undefined) {
     return (
       <output className="block p-8 text-center text-xs text-[#53636B]">
         Verificando sesión…
@@ -431,10 +432,10 @@ export function GestionAlberguesPage({
     );
   }
 
-  const totalRegistrados =
-    resumenGlobal?.totalRegistrados ?? paginaDatos.total;
-  const totalActivos =
-    resumenGlobal?.totalActivos ??
+  const totalRegistrados=
+    resumenGlobal?.totalRegistrados??paginaDatos.total;
+  const totalActivos=
+    resumenGlobal?.totalActivos??
     paginaDatos.items.filter((a) => a.activo).length;
 
   return (
@@ -446,18 +447,18 @@ export function GestionAlberguesPage({
           </h1>
         </div>
 
-        {esSuperAdmin && (
+        {esSuperAdmin&&(
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => abrir(null, "registrar")}
+              onClick={() => abrir(null,"registrar")}
               className="inline-flex h-10 items-center gap-2 bg-[#008994] px-4 text-xs font-semibold text-white transition hover:bg-[#00747E]"
             >
               <Plus size={16} aria-hidden="true" />
               Registrar albergue
             </button>
 
-            {ultimaActualizacion && (
+            {ultimaActualizacion&&(
               <button
                 type="button"
                 onClick={recargar}
@@ -476,9 +477,9 @@ export function GestionAlberguesPage({
         )}
       </header>
 
-      {esSuperAdmin ? (
+      {esSuperAdmin? (
         <>
-          {aviso && (
+          {aviso&&(
             <output className="flex items-start gap-2 border-l-4 border-[#168052] bg-[#E8F7F0] px-3 py-2.5 text-xs text-[#168052]">
               <CheckCircle2
                 size={16}
@@ -496,7 +497,7 @@ export function GestionAlberguesPage({
             </output>
           )}
 
-          {resumenGlobal && <ResumenGlobal resumen={resumenGlobal} />}
+          {resumenGlobal&&<ResumenGlobal resumen={resumenGlobal} />}
 
           <AlberguePanel
             modo={modo}
@@ -509,10 +510,10 @@ export function GestionAlberguesPage({
             confirmandoEstado={confirmandoEstado}
             cambiandoEstado={cambiandoEstado}
             errorEstado={errorEstado}
-            onModoChange={(m) => abrir(seleccionado, m)}
+            onModoChange={(m) => abrir(seleccionado,m)}
             onGuardar={guardar}
             onCancelar={() => {
-              if (modo === "registrar" || modo === "consultar") {
+              if(modo==="registrar"||modo==="consultar") {
                 setSeleccionado(null);
               }
               setModo("consultar");
@@ -536,14 +537,14 @@ export function GestionAlberguesPage({
             onFiltrosChange={cambiarFiltros}
             onPaginaChange={setPagina}
             onPageSizeChange={cambiarTamanoPagina}
-            onConsultar={(a) => abrir(a, "consultar")}
-            onEditar={(a) => abrir(a, "editar")}
-            onCambiarEstado={(a) => abrir(a, "consultar", true)}
+            onConsultar={(a) => abrir(a,"consultar")}
+            onEditar={(a) => abrir(a,"editar")}
+            onCambiarEstado={(a) => abrir(a,"consultar",true)}
             onReintentar={recargar}
-            onRegistrar={() => abrir(null, "registrar")}
+            onRegistrar={() => abrir(null,"registrar")}
           />
         </>
-      ) : (
+      ):(
         <AccesoRestringido />
       )}
     </div>

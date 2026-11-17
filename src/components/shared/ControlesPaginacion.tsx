@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, RotateCcw, Search } from "lucide-react";
+import { ChevronLeft,ChevronRight,RotateCcw,Search } from "lucide-react";
 import {
   calcularRangoPagina,
   MAX_LONGITUD_Q,
@@ -19,48 +19,50 @@ interface ControlesPaginacionProps<T> {
 
 export function ControlesPaginacion<T>({
   pagina,
-  etiquetaItems = "registros",
-  cargando = false,
+  etiquetaItems="registros",
+  cargando=false,
   onPageChange,
   onPageSizeChange,
-  ariaLabel = "Paginación de registros",
+  ariaLabel="Paginación de registros",
 }: ControlesPaginacionProps<T>) {
-  const { desde, hasta, fueraDeRango } = calcularRangoPagina(pagina);
+  const { desde,hasta,fueraDeRango }=calcularRangoPagina(pagina);
+
+  function renderizarResumen() {
+    if(pagina.total===0) { return <>Sin {etiquetaItems} (0 total)</>; }
+    if(fueraDeRango) {
+      return <>
+        Página {pagina.page} sin {etiquetaItems} (total: {pagina.total} ·{" "}
+        {pagina.total_pages}{" "}
+        {pagina.total_pages===1? "página":"páginas"})
+      </>;
+    }
+    return <>
+      Mostrando{" "}
+      <strong className="font-semibold text-[#164652]">
+        {desde}–{hasta}
+      </strong>{" "}
+      de{" "}
+      <strong className="font-semibold text-[#164652]">
+        {pagina.total}
+      </strong>{" "}
+      {etiquetaItems}
+      {pagina.total_pages>0&&(
+        <span className="text-[#718895]">
+          {" "}
+          · Página {pagina.page} de {pagina.total_pages}
+        </span>
+      )}
+    </>;
+  }
 
   return (
     <div className="flex flex-col gap-3 border-t border-[#EEF2F4] bg-[#FAFCFD] px-4 py-3.5 text-xs text-[#53636B] sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-3">
         <p aria-live="polite">
-          {pagina.total === 0 ? (
-            <>Sin {etiquetaItems} (0 total)</>
-          ) : fueraDeRango ? (
-            <>
-              Página {pagina.page} sin {etiquetaItems} (total: {pagina.total} ·{" "}
-              {pagina.total_pages}{" "}
-              {pagina.total_pages === 1 ? "página" : "páginas"})
-            </>
-          ) : (
-            <>
-              Mostrando{" "}
-              <strong className="font-semibold text-[#164652]">
-                {desde}–{hasta}
-              </strong>{" "}
-              de{" "}
-              <strong className="font-semibold text-[#164652]">
-                {pagina.total}
-              </strong>{" "}
-              {etiquetaItems}
-              {pagina.total_pages > 0 && (
-                <span className="text-[#718895]">
-                  {" "}
-                  · Página {pagina.page} de {pagina.total_pages}
-                </span>
-              )}
-            </>
-          )}
+          {renderizarResumen()}
         </p>
 
-        {fueraDeRango && pagina.total_pages >= 1 && (
+        {fueraDeRango&&pagina.total_pages>=1&&(
           <button
             type="button"
             onClick={() => onPageChange(pagina.total_pages)}
@@ -72,7 +74,7 @@ export function ControlesPaginacion<T>({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {onPageSizeChange && (
+        {onPageSizeChange&&(
           <label className="inline-flex items-center gap-1.5 text-xs text-[#53636B]">
             <span>Filas por página</span>
             <select
@@ -95,8 +97,8 @@ export function ControlesPaginacion<T>({
           <button
             type="button"
             aria-label="Página anterior"
-            disabled={!pagina.has_previous || cargando}
-            onClick={() => onPageChange(Math.max(1, pagina.page - 1))}
+            disabled={!pagina.has_previous||cargando}
+            onClick={() => onPageChange(Math.max(1,pagina.page-1))}
             className="inline-flex h-8 items-center gap-1 border border-[#DCE6EA] bg-white px-2.5 text-xs font-semibold text-[#164652] transition hover:bg-[#E6F9FA] hover:text-[#008994] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft size={14} aria-hidden="true" />
@@ -104,16 +106,16 @@ export function ControlesPaginacion<T>({
           </button>
 
           <span className="px-2 text-xs font-semibold text-[#164652]">
-            {pagina.total_pages === 0
+            {pagina.total_pages===0
               ? "0 / 0"
-              : `${pagina.page} / ${pagina.total_pages}`}
+              :`${pagina.page} / ${pagina.total_pages}`}
           </span>
 
           <button
             type="button"
             aria-label="Página siguiente"
-            disabled={!pagina.has_next || cargando}
-            onClick={() => onPageChange(pagina.page + 1)}
+            disabled={!pagina.has_next||cargando}
+            onClick={() => onPageChange(pagina.page+1)}
             className="inline-flex h-8 items-center gap-1 border border-[#DCE6EA] bg-white px-2.5 text-xs font-semibold text-[#164652] transition hover:bg-[#E6F9FA] hover:text-[#008994] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <span>Siguiente</span>
@@ -140,11 +142,11 @@ interface BarraFiltrosServidorProps {
 }
 
 export function BarraFiltrosServidor({
-  q = "",
+  q="",
   onQChange,
-  placeholderQ = "Buscar…",
-  ariaLabelQ = "Buscar registros",
-  mostrarQ = true,
+  placeholderQ="Buscar…",
+  ariaLabelQ="Buscar registros",
+  mostrarQ=true,
   desde,
   hasta,
   onDesdeChange,
@@ -152,17 +154,17 @@ export function BarraFiltrosServidor({
   onLimpiar,
   children,
 }: BarraFiltrosServidorProps) {
-  const hayFiltrosActivos =
-    (mostrarQ && q.trim().length > 0) ||
-    desde.trim().length > 0 ||
-    hasta.trim().length > 0;
+  const hayFiltrosActivos=
+    (mostrarQ&&q.trim().length>0)||
+    desde.trim().length>0||
+    hasta.trim().length>0;
 
-  const rangoInvalido = Boolean(desde && hasta && desde > hasta);
+  const rangoInvalido=Boolean(desde&&hasta&&desde>hasta);
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-end gap-2.5">
-        {mostrarQ && onQChange && (
+        {mostrarQ&&onQChange&&(
           <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
             <span className="mb-1 block text-[11px] font-semibold text-[#53636B]">
               Búsqueda
@@ -191,7 +193,7 @@ export function BarraFiltrosServidor({
           <input
             type="date"
             aria-label="Filtrar desde fecha"
-            max={hasta || undefined}
+            max={hasta||undefined}
             value={desde}
             onChange={(e) => onDesdeChange(e.target.value)}
             className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#164652] outline-none focus:border-[#008994]"
@@ -205,7 +207,7 @@ export function BarraFiltrosServidor({
           <input
             type="date"
             aria-label="Filtrar hasta fecha"
-            min={desde || undefined}
+            min={desde||undefined}
             value={hasta}
             onChange={(e) => onHastaChange(e.target.value)}
             className="h-9 border border-[#DCE6EA] bg-white px-2.5 text-xs text-[#164652] outline-none focus:border-[#008994]"
@@ -214,7 +216,7 @@ export function BarraFiltrosServidor({
 
         {children}
 
-        {hayFiltrosActivos && (
+        {hayFiltrosActivos&&(
           <button
             type="button"
             onClick={onLimpiar}
@@ -226,7 +228,7 @@ export function BarraFiltrosServidor({
         )}
       </div>
 
-      {rangoInvalido && (
+      {rangoInvalido&&(
         <p role="alert" className="text-xs font-medium text-[#C53030]">
           La fecha inicial (desde) no puede ser posterior a la fecha final (hasta).
         </p>

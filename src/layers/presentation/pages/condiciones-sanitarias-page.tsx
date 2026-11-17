@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
-import { Pencil, Save } from "lucide-react";
+import { useState,type SyntheticEvent } from "react";
+import { Pencil,Save } from "lucide-react";
 import {
   obtenerCondicionesSanitariasGateway,
   type CondicionSanitaria,
@@ -20,17 +20,17 @@ export interface CondicionesSanitariasProps {
   readonly hoy?: string;
 }
 
-const OPCIONES_ESTADO = ["Adecuado", "Requiere atención", "Crítico"] as const;
+const OPCIONES_ESTADO=["Adecuado","Requiere atención","Crítico"] as const;
 
-const INPUT_CLS =
+const INPUT_CLS=
   "h-10 w-full border border-[#DCE6EA] bg-white px-3 text-sm text-[#164652] outline-none transition focus:border-[#008994]";
 
 export default function CondicionesSanitariasPage({
   gateway: gatewayInyectado,
-  hoy = hoyEnBogota(),
-}: CondicionesSanitariasProps = {}) {
-  const [gateway] = useState<CondicionesSanitariasGateway>(
-    () => gatewayInyectado ?? obtenerCondicionesSanitariasGateway()
+  hoy=hoyEnBogota(),
+}: CondicionesSanitariasProps={}) {
+  const [gateway]=useState<CondicionesSanitariasGateway>(
+    () => gatewayInyectado??obtenerCondicionesSanitariasGateway()
   );
 
   const {
@@ -48,23 +48,23 @@ export default function CondicionesSanitariasPage({
     setHasta,
     limpiarFiltros,
     recargar,
-  } = useListadoPaginado({
+  }=useListadoPaginado({
     fetcher: (consulta) => gateway.listar(consulta),
     sincronizarUrl: true,
     mensajeErrorDefecto: "No fue posible cargar las condiciones sanitarias.",
   });
 
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [fecha, setFecha] = useState(hoy);
-  const [aguaPotable, setAguaPotable] = useState(true);
-  const [banos, setBanos] = useState("0");
-  const [estadoHigiene, setEstadoHigiene] = useState("Adecuado");
-  const [estadoSaneamiento, setEstadoSaneamiento] = useState("Adecuado");
-  const [observaciones, setObservaciones] = useState("");
+  const [editandoId,setEditandoId]=useState<string|null>(null);
+  const [fecha,setFecha]=useState(hoy);
+  const [aguaPotable,setAguaPotable]=useState(true);
+  const [banos,setBanos]=useState("0");
+  const [estadoHigiene,setEstadoHigiene]=useState("Adecuado");
+  const [estadoSaneamiento,setEstadoSaneamiento]=useState("Adecuado");
+  const [observaciones,setObservaciones]=useState("");
 
-  const [guardando, setGuardando] = useState(false);
-  const [errorForm, setErrorForm] = useState("");
-  const [exitoForm, setExitoForm] = useState("");
+  const [guardando,setGuardando]=useState(false);
+  const [errorForm,setErrorForm]=useState("");
+  const [exitoForm,setExitoForm]=useState("");
 
   function limpiarFormulario() {
     setEditandoId(null);
@@ -91,13 +91,13 @@ export default function CondicionesSanitariasPage({
 
   async function manejarSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (guardando) return;
+    if(guardando) return;
 
-    const cantidadBanos = Number(banos);
-    if (
-      banos.trim() === "" ||
-      !Number.isInteger(cantidadBanos) ||
-      cantidadBanos < 0
+    const cantidadBanos=Number(banos);
+    if(
+      banos.trim()===""||
+      !Number.isInteger(cantidadBanos)||
+      cantidadBanos<0
     ) {
       setErrorForm(
         "La cantidad de baños debe ser un número entero mayor o igual a 0."
@@ -105,7 +105,7 @@ export default function CondicionesSanitariasPage({
       return;
     }
 
-    if (!fecha || !estadoHigiene.trim() || !estadoSaneamiento.trim()) {
+    if(!fecha||!estadoHigiene.trim()||!estadoSaneamiento.trim()) {
       setErrorForm("Completa todos los campos obligatorios.");
       return;
     }
@@ -115,7 +115,7 @@ export default function CondicionesSanitariasPage({
     setExitoForm("");
 
     try {
-      const payload = {
+      const payload={
         fecha,
         aguaPotableDisponible: aguaPotable,
         banosDisponibles: cantidadBanos,
@@ -124,8 +124,8 @@ export default function CondicionesSanitariasPage({
         observaciones,
       };
 
-      if (editandoId) {
-        await gateway.actualizar(editandoId, payload);
+      if(editandoId) {
+        await gateway.actualizar(editandoId,payload);
         setExitoForm(
           "Las condiciones sanitarias se actualizaron correctamente."
         );
@@ -137,18 +137,123 @@ export default function CondicionesSanitariasPage({
       }
       limpiarFormulario();
       recargar();
-    } catch (err: unknown) {
+    } catch(err: unknown) {
       setErrorForm(
         err instanceof Error
           ? err.message
-          : "No fue posible guardar el registro sanitario."
+          :"No fue posible guardar el registro sanitario."
       );
     } finally {
       setGuardando(false);
     }
   }
 
-  const ultimo = registros[0] ?? null;
+  const ultimo=registros[0]??null;
+
+  function textoAgua() {
+    if(ultimo) {
+      if(ultimo.aguaPotableDisponible) { return "Disponible"; }
+      return "No disponible";
+    }
+    return "Sin registro";
+  }
+
+  function textoGuardar() {
+    if(guardando) { return "Guardando…"; }
+    if(editandoId) { return "Guardar cambios"; }
+    return "Guardar registro";
+  }
+
+  function renderizarHistorial() {
+    if(errorCarga) {
+      return <div role="alert" className="p-6 text-sm text-[#C53030]">
+        <p>{errorCarga}</p>
+        <button
+          type="button"
+          onClick={recargar}
+          className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
+        >
+          Reintentar
+        </button>
+      </div>;
+    }
+    if(cargando) { return <SkeletonBloque filas={4} etiqueta="Cargando registros sanitarios…" />; }
+    if(registros.length===0) {
+      return <p className="p-8 text-center text-sm text-[#53636B]">
+        No hay registros de condiciones sanitarias.
+      </p>;
+    }
+    return <section
+
+
+      aria-labelledby="titulo-historial-sanitario"
+      className="overflow-x-auto"
+    >
+      <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
+        <caption className="sr-only">
+          Historial de condiciones sanitarias
+        </caption>
+        <thead>
+          <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
+            <th scope="col" className="px-4 py-3">
+              Fecha
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Agua potable
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Baños
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Higiene
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Saneamiento
+            </th>
+            <th scope="col" className="px-3 py-3">
+              Observaciones
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Acción
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#EEF2F4]">
+          {registros.map((item) => (
+            <tr key={item.id} className="hover:bg-[#FAFCFD]">
+              <td className="whitespace-nowrap px-4 py-3 font-medium text-[#164652]">
+                {item.fecha}
+              </td>
+              <td className="px-3 py-3">
+                {item.aguaPotableDisponible
+                  ? "Disponible"
+                  :"No disponible"}
+              </td>
+              <td className="px-3 py-3 font-semibold text-[#164652]">
+                {item.banosDisponibles}
+              </td>
+              <td className="px-3 py-3">{item.estadoHigiene}</td>
+              <td className="px-3 py-3">{item.estadoSaneamiento}</td>
+              <td className="max-w-xs px-3 py-3">
+                {item.observaciones||"—"}
+              </td>
+              <td className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => cargarEnFormulario(item)}
+                  aria-label={`Editar registro de ${item.fecha}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
+                >
+                  <Pencil size={13} aria-hidden="true" />
+                  Editar
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>;
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 text-[#164652]">
@@ -164,29 +269,25 @@ export default function CondicionesSanitariasPage({
           <div className="py-2 pr-4 sm:py-0">
             <dt className="text-xs text-[#53636B]">Agua potable</dt>
             <dd className="mt-1 text-lg font-bold text-[#164652]">
-              {ultimo
-                ? ultimo.aguaPotableDisponible
-                  ? "Disponible"
-                  : "No disponible"
-                : "Sin registro"}
+              {textoAgua()}
             </dd>
           </div>
           <div className="py-2 sm:px-4 sm:py-0">
             <dt className="text-xs text-[#53636B]">Baños disponibles</dt>
             <dd className="mt-1 text-lg font-bold text-[#164652]">
-              {ultimo ? ultimo.banosDisponibles : "—"}
+              {ultimo? ultimo.banosDisponibles:"—"}
             </dd>
           </div>
           <div className="py-2 pr-4 sm:px-4 sm:py-0">
             <dt className="text-xs text-[#53636B]">Estado de higiene</dt>
             <dd className="mt-1 text-lg font-bold text-[#164652]">
-              {ultimo ? ultimo.estadoHigiene : "—"}
+              {ultimo? ultimo.estadoHigiene:"—"}
             </dd>
           </div>
           <div className="py-2 sm:pl-4 sm:py-0">
             <dt className="text-xs text-[#53636B]">Estado de saneamiento</dt>
             <dd className="mt-1 text-lg font-bold text-[#164652]">
-              {ultimo ? ultimo.estadoSaneamiento : "—"}
+              {ultimo? ultimo.estadoSaneamiento:"—"}
             </dd>
           </div>
         </dl>
@@ -195,7 +296,7 @@ export default function CondicionesSanitariasPage({
       {/* Formulario horizontal superior */}
       <aside className="border-t-2 border-[#008994] bg-white p-5 shadow-xs">
         <h2 className="text-base font-bold text-[#164652]">
-          {editandoId ? "Editar condiciones" : "Registrar condiciones"}
+          {editandoId? "Editar condiciones":"Registrar condiciones"}
         </h2>
 
         <form onSubmit={manejarSubmit} noValidate className="mt-4 space-y-4">
@@ -227,8 +328,8 @@ export default function CondicionesSanitariasPage({
               </label>
               <select
                 id="san-agua"
-                value={aguaPotable ? "si" : "no"}
-                onChange={(e) => setAguaPotable(e.target.value === "si")}
+                value={aguaPotable? "si":"no"}
+                onChange={(e) => setAguaPotable(e.target.value==="si")}
                 className={INPUT_CLS}
               >
                 <option value="si">Disponible</option>
@@ -317,7 +418,7 @@ export default function CondicionesSanitariasPage({
             </div>
 
             <div className="flex gap-2">
-              {editandoId && (
+              {editandoId&&(
                 <button
                   type="button"
                   onClick={limpiarFormulario}
@@ -334,23 +435,19 @@ export default function CondicionesSanitariasPage({
               >
                 <Save size={14} aria-hidden="true" />
                 <span>
-                  {guardando
-                    ? "Guardando…"
-                    : editandoId
-                    ? "Guardar cambios"
-                    : "Guardar registro"}
+                  {textoGuardar()}
                 </span>
               </button>
             </div>
           </div>
 
-          {errorForm && (
+          {errorForm&&(
             <p role="alert" className="text-xs font-medium text-[#C53030]">
               {errorForm}
             </p>
           )}
 
-          {exitoForm && (
+          {exitoForm&&(
             <output className="block text-xs font-medium text-[#168052]">
               {exitoForm}
             </output>
@@ -384,95 +481,7 @@ export default function CondicionesSanitariasPage({
           />
         </div>
 
-        {errorCarga ? (
-          <div role="alert" className="p-6 text-sm text-[#C53030]">
-            <p>{errorCarga}</p>
-            <button
-              type="button"
-              onClick={recargar}
-              className="mt-2 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652]"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : cargando ? (
-          <SkeletonBloque filas={4} etiqueta="Cargando registros sanitarios…" />
-        ) : registros.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#53636B]">
-            No hay registros de condiciones sanitarias.
-          </p>
-        ) : (
-          <div
-            tabIndex={0}
-            role="region"
-            aria-labelledby="titulo-historial-sanitario"
-            className="overflow-x-auto"
-          >
-            <table className="w-full min-w-[600px] text-left text-xs text-[#53636B]">
-              <caption className="sr-only">
-                Historial de condiciones sanitarias
-              </caption>
-              <thead>
-                <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
-                  <th scope="col" className="px-4 py-3">
-                    Fecha
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Agua potable
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Baños
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Higiene
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Saneamiento
-                  </th>
-                  <th scope="col" className="px-3 py-3">
-                    Observaciones
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Acción
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EEF2F4]">
-                {registros.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#FAFCFD]">
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-[#164652]">
-                      {item.fecha}
-                    </td>
-                    <td className="px-3 py-3">
-                      {item.aguaPotableDisponible
-                        ? "Disponible"
-                        : "No disponible"}
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-[#164652]">
-                      {item.banosDisponibles}
-                    </td>
-                    <td className="px-3 py-3">{item.estadoHigiene}</td>
-                    <td className="px-3 py-3">{item.estadoSaneamiento}</td>
-                    <td className="max-w-xs px-3 py-3">
-                      {item.observaciones || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => cargarEnFormulario(item)}
-                        aria-label={`Editar registro de ${item.fecha}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
-                      >
-                        <Pencil size={13} aria-hidden="true" />
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {renderizarHistorial()}
 
         <ControlesPaginacion
           pagina={pagina}

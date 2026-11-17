@@ -1,4 +1,4 @@
-import { ApiError, crearClienteApi } from "./api-client";
+import { ApiError,crearClienteApi } from "./api-client";
 import {
   construirQueryPaginada,
   mapearPagina,
@@ -13,7 +13,9 @@ import type {
   NivelRiesgo,
 } from "@/layers/domain/albergues/albergue";
 
-export type NivelRiesgoCanonico = "verde" | "amarillo" | "rojo";
+const CONSULTA_REGISTROS_INICIAL: ConsultaPaginada=Object.freeze({ page: 1,page_size: 10 });
+
+export type NivelRiesgoCanonico="verde"|"amarillo"|"rojo";
 
 export interface ResumenAlberguesGlobal {
   readonly totalRegistrados: number;
@@ -21,9 +23,9 @@ export interface ResumenAlberguesGlobal {
   readonly conAdministrador: number;
   readonly criticos: number;
   readonly sinClasificacion: number;
-  readonly poblacionActual: number | null;
+  readonly poblacionActual: number|null;
   readonly alberguesSinPoblacion: number;
-  readonly porcentajeOcupacion: number | null;
+  readonly porcentajeOcupacion: number|null;
 }
 
 export interface CondicionGlobalAlbergue {
@@ -41,7 +43,7 @@ export interface EnfermedadGlobalAlbergue {
   readonly fecha: string;
   readonly enfermedad: string;
   readonly cantidadCasosActivos: number;
-  readonly cantidadRecuperados: number | null;
+  readonly cantidadRecuperados: number|null;
   readonly observaciones: string;
 }
 
@@ -64,8 +66,8 @@ export interface AlberguesGateway {
   resumen?(): Promise<ResumenAlberguesGlobal>;
   obtener?(id: string): Promise<Albergue>;
   crear(entrada: AlbergueEntrada): Promise<Albergue>;
-  actualizar(id: string, entrada: AlbergueEntrada): Promise<Albergue>;
-  cambiarEstado(id: string, activo: boolean): Promise<Albergue>;
+  actualizar(id: string,entrada: AlbergueEntrada): Promise<Albergue>;
+  cambiarEstado(id: string,activo: boolean): Promise<Albergue>;
   consultarRegistros?(
     id: string,
     consulta?: ConsultaPaginada
@@ -88,11 +90,11 @@ export class AlberguesError extends Error {
   readonly status: number;
   readonly campos: ErroresAlbergue;
 
-  constructor(status: number, mensaje: string, campos: ErroresAlbergue = {}) {
+  constructor(status: number,mensaje: string,campos: ErroresAlbergue={}) {
     super(mensaje);
-    this.name = "AlberguesError";
-    this.status = status;
-    this.campos = campos;
+    this.name="AlberguesError";
+    this.status=status;
+    this.campos=campos;
   }
 }
 
@@ -105,13 +107,13 @@ export interface AlbergueApi {
     departamento: string;
     municipio: string;
     direccion: string;
-    coordenadas: { type: "Point"; coordinates: [number, number] };
+    coordenadas: { type: "Point"; coordinates: [number,number] };
   };
   capacidad_instalada: number;
   activo: boolean;
-  poblacion_actual?: number | null;
-  administrador?: string | null;
-  nivel_riesgo?: NivelRiesgoCanonico | NivelRiesgo | null;
+  poblacion_actual?: number|null;
+  administrador?: string|null;
+  nivel_riesgo?: NivelRiesgoCanonico|NivelRiesgo|null;
   created_at?: string;
 }
 
@@ -121,9 +123,9 @@ export interface ResumenAlberguesApi {
   con_administrador: number;
   criticos: number;
   sin_clasificacion: number;
-  poblacion_actual: number | null;
+  poblacion_actual: number|null;
   albergues_sin_poblacion: number;
-  porcentaje_ocupacion: number | null;
+  porcentaje_ocupacion: number|null;
 }
 
 interface CondicionApi {
@@ -134,7 +136,7 @@ interface CondicionApi {
   banos_disponibles: number;
   estado_higiene: string;
   estado_saneamiento: string;
-  observaciones?: string | null;
+  observaciones?: string|null;
 }
 
 interface EnfermedadApi {
@@ -143,8 +145,8 @@ interface EnfermedadApi {
   fecha: string;
   enfermedad: string;
   cantidad_casos_activos: number;
-  cantidad_recuperados?: number | null;
-  observaciones?: string | null;
+  cantidad_recuperados?: number|null;
+  observaciones?: string|null;
 }
 
 interface IntervencionApi {
@@ -153,10 +155,10 @@ interface IntervencionApi {
   fecha_intervencion: string;
   tipo_intervencion: string;
   descripcion: string;
-  observaciones?: string | null;
+  observaciones?: string|null;
 }
 
-const CAMPOS_API: Record<string, CampoAlbergue> = {
+const CAMPOS_API: Record<string,CampoAlbergue>={
   codigo_albergue: "codigo",
   nombre: "nombre",
   departamento: "departamento",
@@ -167,21 +169,21 @@ const CAMPOS_API: Record<string, CampoAlbergue> = {
 };
 
 export function adaptarNivelRiesgo(
-  nivel?: NivelRiesgoCanonico | NivelRiesgo | null
-): NivelRiesgo | null {
-  if (!nivel) return null;
-  if (nivel === "verde" || nivel === "bajo") return "bajo";
-  if (nivel === "amarillo" || nivel === "medio") return "medio";
-  if (nivel === "rojo" || nivel === "critico") return "critico";
-  if (nivel === "alto") return "alto";
+  nivel?: NivelRiesgoCanonico|NivelRiesgo|null
+): NivelRiesgo|null {
+  if(!nivel) return null;
+  if(nivel==="verde"||nivel==="bajo") return "bajo";
+  if(nivel==="amarillo"||nivel==="medio") return "medio";
+  if(nivel==="rojo"||nivel==="critico") return "critico";
+  if(nivel==="alto") return "alto";
   return null;
 }
 
 export function desdeApi(dato: AlbergueApi): Albergue {
-  const [longitud, latitud] = dato.ubicacion.coordenadas.coordinates;
+  const [longitud,latitud]=dato.ubicacion.coordenadas.coordinates;
 
   return {
-    id: dato.id ?? dato._id ?? dato.codigo_albergue,
+    id: dato.id??dato._id??dato.codigo_albergue,
     codigo: dato.codigo_albergue,
     nombre: dato.nombre,
     departamento: dato.ubicacion.departamento,
@@ -192,10 +194,10 @@ export function desdeApi(dato: AlbergueApi): Albergue {
     capacidadInstalada: dato.capacidad_instalada,
     activo: dato.activo,
     poblacionActual:
-      dato.poblacion_actual === undefined ? null : dato.poblacion_actual,
-    administrador: dato.administrador ?? null,
+      dato.poblacion_actual??null,
+    administrador: dato.administrador??null,
     riesgo: adaptarNivelRiesgo(dato.nivel_riesgo),
-    creadoEn: dato.created_at ?? "",
+    creadoEn: dato.created_at??"",
   };
 }
 
@@ -209,12 +211,10 @@ export function mapearResumenGlobal(
     criticos: dato.criticos,
     sinClasificacion: dato.sin_clasificacion,
     poblacionActual:
-      dato.poblacion_actual === undefined ? null : dato.poblacion_actual,
+      dato.poblacion_actual??null,
     alberguesSinPoblacion: dato.albergues_sin_poblacion,
     porcentajeOcupacion:
-      dato.porcentaje_ocupacion === undefined
-        ? null
-        : dato.porcentaje_ocupacion,
+      dato.porcentaje_ocupacion??null,
   };
 }
 
@@ -227,7 +227,7 @@ export function haciaApi(entrada: AlbergueEntrada) {
       direccion: entrada.direccion,
       coordenadas: {
         type: "Point" as const,
-        coordinates: [entrada.longitud, entrada.latitud] as [number, number],
+        coordinates: [entrada.longitud,entrada.latitud] as [number,number],
       },
     },
     capacidad_instalada: entrada.capacidadInstalada,
@@ -236,25 +236,25 @@ export function haciaApi(entrada: AlbergueEntrada) {
 
 function mapearCondicionGlobal(c: CondicionApi): CondicionGlobalAlbergue {
   return {
-    id: c.id ?? c._id ?? c.fecha,
-    fecha: c.fecha.slice(0, 10),
+    id: c.id??c._id??c.fecha,
+    fecha: c.fecha.slice(0,10),
     aguaPotableDisponible: c.agua_potable_disponible,
     banosDisponibles: c.banos_disponibles,
     estadoHigiene: c.estado_higiene,
     estadoSaneamiento: c.estado_saneamiento,
-    observaciones: c.observaciones ?? "",
+    observaciones: c.observaciones??"",
   };
 }
 
 function mapearEnfermedadGlobal(e: EnfermedadApi): EnfermedadGlobalAlbergue {
   return {
-    id: e.id ?? e._id ?? `${e.fecha}-${e.enfermedad}`,
-    fecha: e.fecha.slice(0, 10),
+    id: e.id??e._id??`${e.fecha}-${e.enfermedad}`,
+    fecha: e.fecha.slice(0,10),
     enfermedad: e.enfermedad,
     cantidadCasosActivos: e.cantidad_casos_activos,
     cantidadRecuperados:
-      e.cantidad_recuperados === undefined ? null : e.cantidad_recuperados,
-    observaciones: e.observaciones ?? "",
+      e.cantidad_recuperados??null,
+    observaciones: e.observaciones??"",
   };
 }
 
@@ -262,63 +262,63 @@ function mapearIntervencionGlobal(
   i: IntervencionApi
 ): IntervencionGlobalAlbergue {
   return {
-    id: i.id ?? i._id ?? `${i.fecha_intervencion}-${i.tipo_intervencion}`,
-    fecha: i.fecha_intervencion.slice(0, 10),
+    id: i.id??i._id??`${i.fecha_intervencion}-${i.tipo_intervencion}`,
+    fecha: i.fecha_intervencion.slice(0,10),
     tipo: i.tipo_intervencion,
     descripcion: i.descripcion,
-    observaciones: i.observaciones ?? "",
+    observaciones: i.observaciones??"",
   };
 }
 
 export function crearGatewayHttp(
   baseUrl: string,
-  obtenerToken: () => string | null,
-  fetchFn: typeof fetch = (...args) => fetch(...args)
+  obtenerToken: () => string|null,
+  fetchFn: typeof fetch=(...args) => fetch(...args)
 ): AlberguesGateway {
-  const cliente = crearClienteApi(baseUrl, obtenerToken, fetchFn);
+  const cliente=crearClienteApi(baseUrl,obtenerToken,fetchFn);
 
   async function solicitar<T>(
     ruta: string,
-    init: RequestInit = {}
+    init: RequestInit={}
   ): Promise<T> {
     try {
-      return await cliente.solicitar<T>(`/api/v1/albergues${ruta}`, init);
-    } catch (error) {
-      if (!(error instanceof ApiError)) throw error;
-      const campos: ErroresAlbergue = {};
-      for (const [campo, mensaje] of Object.entries(error.campos)) {
-        const destino = CAMPOS_API[campo];
-        if (destino) campos[destino] = mensaje;
+      return await cliente.solicitar<T>(`/api/v1/albergues${ruta}`,init);
+    } catch(error) {
+      if(!(error instanceof ApiError)) throw error;
+      const campos: ErroresAlbergue={};
+      for(const [campo,mensaje] of Object.entries(error.campos)) {
+        const destino=CAMPOS_API[campo];
+        if(destino) campos[destino]=mensaje;
       }
-      throw new AlberguesError(error.status, error.message, campos);
+      throw new AlberguesError(error.status,error.message,campos);
     }
   }
 
   return {
-    async listar(consulta = {}) {
-      const query = construirQueryPaginada(consulta);
-      const pagina = await solicitar<Page<AlbergueApi>>(query);
-      return mapearPagina(pagina, desdeApi);
+    async listar(consulta={}) {
+      const query=construirQueryPaginada(consulta);
+      const pagina=await solicitar<Page<AlbergueApi>>(query);
+      return mapearPagina(pagina,desdeApi);
     },
     async resumen() {
-      const datos = await solicitar<ResumenAlberguesApi>("/resumen");
+      const datos=await solicitar<ResumenAlberguesApi>("/resumen");
       return mapearResumenGlobal(datos);
     },
     async obtener(id) {
-      const dato = await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}`);
+      const dato=await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}`);
       return desdeApi(dato);
     },
     async crear(entrada) {
       return desdeApi(
-        await solicitar<AlbergueApi>("", {
+        await solicitar<AlbergueApi>("",{
           method: "POST",
           body: JSON.stringify(haciaApi(entrada)),
         })
       );
     },
-    async actualizar(id, entrada) {
+    async actualizar(id,entrada) {
       return desdeApi(
-        await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}`, {
+        await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}`,{
           method: "PATCH",
           body: JSON.stringify({
             nombre: entrada.nombre,
@@ -328,47 +328,47 @@ export function crearGatewayHttp(
         })
       );
     },
-    async cambiarEstado(id, activo) {
-      if (activo) {
+    async cambiarEstado(id,activo) {
+      if(activo) {
         throw new AlberguesError(
           422,
           "La reactivación de albergues aún no está disponible."
         );
       }
       return desdeApi(
-        await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}/desactivar`, {
+        await solicitar<AlbergueApi>(`/${encodeURIComponent(id)}/desactivar`,{
           method: "PATCH",
         })
       );
     },
-    async listarCondiciones(id, consulta = {}) {
-      const encoded = encodeURIComponent(id);
-      const query = construirQueryPaginada(consulta);
-      const pagina = await solicitar<Page<CondicionApi>>(
+    async listarCondiciones(id,consulta={}) {
+      const encoded=encodeURIComponent(id);
+      const query=construirQueryPaginada(consulta);
+      const pagina=await solicitar<Page<CondicionApi>>(
         `/${encoded}/condiciones-sanitarias${query}`
       );
-      return mapearPagina(pagina, mapearCondicionGlobal);
+      return mapearPagina(pagina,mapearCondicionGlobal);
     },
-    async listarEnfermedades(id, consulta = {}) {
-      const encoded = encodeURIComponent(id);
-      const query = construirQueryPaginada(consulta);
-      const pagina = await solicitar<Page<EnfermedadApi>>(
+    async listarEnfermedades(id,consulta={}) {
+      const encoded=encodeURIComponent(id);
+      const query=construirQueryPaginada(consulta);
+      const pagina=await solicitar<Page<EnfermedadApi>>(
         `/${encoded}/enfermedades${query}`
       );
-      return mapearPagina(pagina, mapearEnfermedadGlobal);
+      return mapearPagina(pagina,mapearEnfermedadGlobal);
     },
-    async listarIntervenciones(id, consulta = {}) {
-      const encoded = encodeURIComponent(id);
-      const query = construirQueryPaginada(consulta);
-      const pagina = await solicitar<Page<IntervencionApi>>(
+    async listarIntervenciones(id,consulta={}) {
+      const encoded=encodeURIComponent(id);
+      const query=construirQueryPaginada(consulta);
+      const pagina=await solicitar<Page<IntervencionApi>>(
         `/${encoded}/intervenciones${query}`
       );
-      return mapearPagina(pagina, mapearIntervencionGlobal);
+      return mapearPagina(pagina,mapearIntervencionGlobal);
     },
-    async consultarRegistros(id, consulta = { page: 1, page_size: 10 }) {
-      const encoded = encodeURIComponent(id);
-      const query = construirQueryPaginada(consulta);
-      const [condiciones, enfermedades, intervenciones] = await Promise.all([
+    async consultarRegistros(id,consulta=CONSULTA_REGISTROS_INICIAL) {
+      const encoded=encodeURIComponent(id);
+      const query=construirQueryPaginada(consulta);
+      const [condiciones,enfermedades,intervenciones]=await Promise.all([
         solicitar<Page<CondicionApi>>(
           `/${encoded}/condiciones-sanitarias${query}`
         ),
@@ -379,22 +379,22 @@ export function crearGatewayHttp(
       ]);
 
       return {
-        condiciones: mapearPagina(condiciones, mapearCondicionGlobal),
-        enfermedades: mapearPagina(enfermedades, mapearEnfermedadGlobal),
-        intervenciones: mapearPagina(intervenciones, mapearIntervencionGlobal),
+        condiciones: mapearPagina(condiciones,mapearCondicionGlobal),
+        enfermedades: mapearPagina(enfermedades,mapearEnfermedadGlobal),
+        intervenciones: mapearPagina(intervenciones,mapearIntervencionGlobal),
       };
     },
   };
 }
 
-let gatewayPorDefecto: AlberguesGateway | null = null;
+let gatewayPorDefecto: AlberguesGateway|null=null;
 
 export function obtenerAlberguesGateway(
-  obtenerToken: () => string | null
+  obtenerToken: () => string|null
 ): AlberguesGateway {
-  if (!gatewayPorDefecto) {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-    gatewayPorDefecto = crearGatewayHttp(baseUrl, obtenerToken);
+  if(!gatewayPorDefecto) {
+    const baseUrl=process.env.NEXT_PUBLIC_API_URL??"";
+    gatewayPorDefecto=crearGatewayHttp(baseUrl,obtenerToken);
   }
 
   return gatewayPorDefecto;
