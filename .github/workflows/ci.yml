@@ -122,6 +122,15 @@ jobs:
       - name: Build application
         run: pnpm run build
 
+  docker:
+    name: Docker build
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deployment image
+        run: docker build -t semaforo-vital-frontend:ci .
+
   sonar:
     name: SonarQube
     needs: [lint, typecheck, test]
