@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import {
-  CalendarDays,
   CheckCircle2,
   CircleAlert,
   ClipboardCheck,
   ClipboardPlus,
-  Layers,
   LoaderCircle,
+  Pencil,
   Plus,
   RefreshCw,
-  Search,
   ServerCrash,
   X,
 } from "lucide-react";
@@ -22,7 +20,6 @@ import {
   TIPOS_INTERVENCION,
   formatearFecha,
   hoyEnBogota,
-  ordenarIntervenciones,
   validarIntervencion,
   type CampoIntervencion,
   type ErroresIntervencion,
@@ -34,125 +31,41 @@ import {
   obtenerIntervencionesGateway,
   type IntervencionesGateway,
 } from "../../application/services/intervenciones-service";
+import { useListadoPaginado } from "@/layers/presentation/hooks/use-listado-paginado";
+import {
+  BarraFiltrosServidor,
+  ControlesPaginacion,
+} from "@/components/shared/ControlesPaginacion";
 
-type EstadoCarga = "cargando" | "listo" | "error";
-
-interface IntervencionesPageProps {
-  /** Permite inyectar datos en pruebas. */
+export interface IntervencionesPageProps {
   readonly gateway?: IntervencionesGateway;
-  readonly modoDemostracion?: boolean;
   readonly hoy?: string;
 }
 
-const CAMPOS_ORDEN: CampoIntervencion[] = ["tipo", "descripcion", "fecha", "observaciones"];
+const CAMPOS_ORDEN: CampoIntervencion[] = [
+  "tipo",
+  "descripcion",
+  "fecha",
+  "observaciones",
+];
 
 const CONTROL_BASE =
-  "w-full rounded-lg border bg-white px-3 text-sm text-[#203B45] outline-none transition placeholder:text-[#9AABB3] focus:ring-2";
+  "w-full border bg-white px-3 text-sm text-[#203B45] outline-none transition placeholder:text-[#9AABB3] focus:ring-2";
 
 function claseControl(error?: string): string {
   return `${CONTROL_BASE} ${
     error
       ? "border-[#D64545] focus:ring-[#D64545]/15"
-      : "border-[#DCE5EA] focus:border-[#00B9C7] focus:ring-[#00B9C7]/20"
+      : "border-[#DCE5EA] focus:border-[#008994] focus:ring-[#008994]/15"
   }`;
 }
 
-function restarDias(fecha: string, dias: number): string {
-  const [anio, mes, dia] = fecha.split("-").map(Number);
-  const resultado = new Date(Date.UTC(anio, mes - 1, dia - dias));
-  return resultado.toISOString().slice(0, 10);
-}
-
-function normalizar(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replaceAll(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function contarRegistros(cantidad: number): string {
-  if (cantidad === 0) return "Sin registros";
-  return cantidad === 1 ? "1 registro" : `${cantidad} registros`;
-}
-
 function enfocarFormulario() {
-  document.getElementById("nueva-intervencion")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document
+    .getElementById("nueva-intervencion")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("intervencion-tipo")?.focus({ preventScroll: true });
 }
-
-/* ------------------------------ Resumen ----------------------------- */
-
-function calcularResumen(intervenciones: readonly Intervencion[], hoy: string) {
-  const inicioMes = `${hoy.slice(0, 7)}-01`;
-  const hace7Dias = restarDias(hoy, 6);
-  const conteo = new Map<string, number>();
-
-  for (const item of intervenciones) {
-    conteo.set(item.tipo, (conteo.get(item.tipo) ?? 0) + 1);
-  }
-
-  let tipoFrecuente = "—";
-  let maximo = 0;
-
-  for (const [tipo, cantidad] of conteo) {
-    if (cantidad > maximo) {
-      tipoFrecuente = tipo;
-      maximo = cantidad;
-    }
-  }
-
-  return {
-    total: intervenciones.length,
-    esteMes: intervenciones.filter((i) => i.fecha >= inicioMes).length,
-    ultimaSemana: intervenciones.filter((i) => i.fecha >= hace7Dias).length,
-    tipoFrecuente,
-    tipoFrecuenteCantidad: maximo,
-  };
-}
-
-function Resumen({
-  intervenciones,
-  hoy,
-}: {
-  readonly intervenciones: readonly Intervencion[];
-  readonly hoy: string;
-}) {
-  const resumen = calcularResumen(intervenciones, hoy);
-
-  const tarjetas = [
-    { titulo: "Intervenciones totales", valor: String(resumen.total), detalle: "Acciones registradas", icono: ClipboardCheck },
-    { titulo: "Este mes", valor: String(resumen.esteMes), detalle: "Desde el día 1", icono: CalendarDays },
-    { titulo: "Últimos 7 días", valor: String(resumen.ultimaSemana), detalle: "Acciones recientes", icono: CheckCircle2 },
-    {
-      titulo: "Tipo más frecuente",
-      valor: resumen.tipoFrecuente,
-      detalle: contarRegistros(resumen.tipoFrecuenteCantidad),
-      icono: Layers,
-    },
-  ];
-
-  return (
-    <section aria-label="Resumen de intervenciones" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-      {tarjetas.map((tarjeta) => {
-        const Icono = tarjeta.icono;
-
-        return (
-          <article key={tarjeta.titulo} className="rounded-xl border border-[#E4EBEF] bg-white p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-2">
-              <h2 className="text-xs font-medium text-[#718895] sm:text-sm">{tarjeta.titulo}</h2>
-              <Icono size={18} aria-hidden="true" className="shrink-0 text-[#009EAD]" />
-            </div>
-            <p className="mt-2 truncate text-lg font-semibold text-[#203B45] sm:text-2xl">{tarjeta.valor}</p>
-            <p className="mt-0.5 text-xs text-[#8297A1]">{tarjeta.detalle}</p>
-          </article>
-        );
-      })}
-    </section>
-  );
-}
-
-/* ----------------------------- Formulario ---------------------------- */
 
 function Campo({
   id,
@@ -171,21 +84,32 @@ function Campo({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-[#29434D]">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-xs font-semibold text-[#164652]"
+      >
         <span>{etiqueta}</span>
         {obligatorio && (
-          <span aria-hidden="true" className="text-[#D64545]"> *</span>
+          <span aria-hidden="true" className="text-[#D64545]">
+            {" "}
+            *
+          </span>
         )}
       </label>
       {children}
       {error && (
-        <p id={`${id}-error`} className="mt-1 flex items-start gap-1 text-xs text-[#D64545]">
+        <p
+          id={`${id}-error`}
+          className="mt-1 flex items-start gap-1 text-xs text-[#D64545]"
+        >
           <CircleAlert size={13} aria-hidden="true" className="mt-px shrink-0" />
           <span>{error}</span>
         </p>
       )}
       {!error && ayuda && (
-        <p id={`${id}-ayuda`} className="mt-1 text-xs text-[#8297A1]">{ayuda}</p>
+        <p id={`${id}-ayuda`} className="mt-1 text-xs text-[#8297A1]">
+          {ayuda}
+        </p>
       )}
     </div>
   );
@@ -193,12 +117,28 @@ function Campo({
 
 function FormularioIntervencion({
   hoy,
-  onRegistrar,
+  editando,
+  onGuardar,
+  onCancelarEdicion,
 }: {
   readonly hoy: string;
-  readonly onRegistrar: (entrada: IntervencionEntrada) => Promise<void>;
+  readonly editando: Intervencion | null;
+  readonly onGuardar: (
+    entrada: IntervencionEntrada,
+    idEdicion: string | null
+  ) => Promise<void>;
+  readonly onCancelarEdicion: () => void;
 }) {
-  const [valores, setValores] = useState<IntervencionEntrada>(INTERVENCION_VACIA);
+  const [valores, setValores] = useState<IntervencionEntrada>(() =>
+    editando
+      ? {
+          tipo: editando.tipo,
+          descripcion: editando.descripcion,
+          fecha: editando.fecha,
+          observaciones: editando.observaciones,
+        }
+      : INTERVENCION_VACIA
+  );
   const [errores, setErrores] = useState<ErroresIntervencion>({});
   const [intentado, setIntentado] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -218,6 +158,7 @@ function FormularioIntervencion({
     setErrores({});
     setIntentado(false);
     setErrorServidor("");
+    onCancelarEdicion();
   }
 
   function atributos(campo: CampoIntervencion) {
@@ -252,127 +193,174 @@ function FormularioIntervencion({
     setGuardando(true);
 
     try {
-      await onRegistrar(valores);
+      await onGuardar(valores, editando?.id ?? null);
       limpiar();
     } catch (error) {
       if (error instanceof ApiError) {
         setErrores(error.campos);
         setErrorServidor(error.message);
       } else {
-        setErrorServidor("No fue posible registrar la intervención. Inténtalo nuevamente.");
+        setErrorServidor(
+          "No fue posible registrar la intervención. Inténtalo nuevamente."
+        );
       }
     } finally {
       setGuardando(false);
     }
   }
 
-  const hayErroresCampo = intentado && Object.keys(errores).length > 0 && !errorServidor;
+  const hayErroresCampo =
+    intentado && Object.keys(errores).length > 0 && !errorServidor;
 
   return (
     <aside
       id="nueva-intervencion"
       aria-labelledby="titulo-formulario"
-      className="rounded-xl border border-[#E4EBEF] bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-6"
+      className="border-t-2 border-[#008994] bg-white p-5 shadow-xs"
     >
-      <h2 id="titulo-formulario" className="flex items-center gap-2 text-lg font-semibold text-[#203B45]">
-        <ClipboardPlus size={20} aria-hidden="true" className="text-[#009EAD]" />
-        <span>Nueva intervención</span>
+      <h2
+        id="titulo-formulario"
+        className="flex items-center gap-2 text-base font-bold text-[#164652]"
+      >
+        <ClipboardPlus size={18} aria-hidden="true" className="text-[#008994]" />
+        <span>
+          {editando ? "Editar intervención" : "Nueva intervención"}
+        </span>
       </h2>
-      <p className="mt-1 text-sm text-[#718895]">
-        Registra una acción sanitaria ya realizada en tu albergue.
-      </p>
 
-      <form onSubmit={enviar} noValidate aria-busy={guardando} className="mt-4 space-y-4">
+      <form
+        onSubmit={enviar}
+        noValidate
+        aria-busy={guardando}
+        className="mt-4 space-y-4"
+      >
         {hayErroresCampo && (
-          <p role="alert" className="rounded-lg bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]">
+          <p
+            role="alert"
+            className="bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]"
+          >
             Revisa los campos marcados antes de guardar.
           </p>
         )}
 
         {errorServidor && (
-          <p role="alert" className="flex items-start gap-2 rounded-lg bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]">
+          <p
+            role="alert"
+            className="flex items-start gap-2 bg-[#FFF0F0] px-3 py-2 text-xs text-[#C53030]"
+          >
             <CircleAlert size={14} aria-hidden="true" className="mt-px shrink-0" />
             <span>{errorServidor}</span>
           </p>
         )}
 
-        <fieldset disabled={guardando} className="space-y-4">
+        <fieldset
+          disabled={guardando}
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+        >
           <legend className="sr-only">Datos de la intervención</legend>
 
-          <Campo id="intervencion-tipo" etiqueta="Tipo de intervención" obligatorio error={errores.tipo}>
+          <Campo
+            id="intervencion-tipo"
+            etiqueta="Tipo de intervención"
+            obligatorio
+            error={errores.tipo}
+          >
             <select
               {...atributos("tipo")}
               value={valores.tipo}
               onChange={(e) => cambiar("tipo", e.target.value)}
-              className={`${claseControl(errores.tipo)} h-11`}
+              className={`${claseControl(errores.tipo)} h-10`}
             >
               <option value="">Selecciona una categoría</option>
               {TIPOS_INTERVENCION.map((tipo) => (
-                <option key={tipo} value={tipo}>{tipo}</option>
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
               ))}
             </select>
           </Campo>
 
           <Campo
-            id="intervencion-descripcion"
-            etiqueta="Descripción"
+            id="intervencion-fecha"
+            etiqueta="Fecha de realización"
             obligatorio
-            error={errores.descripcion}
-            ayuda={`${valores.descripcion.trim().length}/${DESCRIPCION_MAXIMA} caracteres`}
+            error={errores.fecha}
           >
-            <textarea
-              {...atributos("descripcion")}
-              value={valores.descripcion}
-              onChange={(e) => cambiar("descripcion", e.target.value)}
-              placeholder="Describe la acción sanitaria realizada y su alcance…"
-              rows={4}
-              maxLength={DESCRIPCION_MAXIMA + 50}
-              className={`${claseControl(errores.descripcion)} resize-y py-2.5`}
-            />
-          </Campo>
-
-          <Campo id="intervencion-fecha" etiqueta="Fecha de realización" obligatorio error={errores.fecha}>
             <input
               {...atributos("fecha")}
               type="date"
               value={valores.fecha}
               max={hoy}
               onChange={(e) => cambiar("fecha", e.target.value)}
-              className={`${claseControl(errores.fecha)} h-11`}
+              className={`${claseControl(errores.fecha)} h-10`}
             />
           </Campo>
 
-          <Campo
-            id="intervencion-observaciones"
-            etiqueta="Observaciones (opcional)"
-            error={errores.observaciones}
-            ayuda={`Máximo ${OBSERVACIONES_MAXIMA} caracteres`}
-          >
-            <textarea
-              {...atributos("observaciones")}
-              value={valores.observaciones}
-              onChange={(e) => cambiar("observaciones", e.target.value)}
-              placeholder="Información adicional (opcional)"
-              rows={2}
-              className={`${claseControl(errores.observaciones)} resize-y py-2.5`}
-            />
-          </Campo>
+          <div className="sm:col-span-2">
+            <Campo
+              id="intervencion-descripcion"
+              etiqueta="Descripción"
+              obligatorio
+              error={errores.descripcion}
+              ayuda={`${valores.descripcion.trim().length}/${DESCRIPCION_MAXIMA} caracteres`}
+            >
+              <textarea
+                {...atributos("descripcion")}
+                value={valores.descripcion}
+                onChange={(e) => cambiar("descripcion", e.target.value)}
+                placeholder="Describe la acción sanitaria realizada y su alcance…"
+                rows={3}
+                maxLength={DESCRIPCION_MAXIMA + 50}
+                className={`${claseControl(errores.descripcion)} resize-y py-2`}
+              />
+            </Campo>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Campo
+              id="intervencion-observaciones"
+              etiqueta="Observaciones (opcional)"
+              error={errores.observaciones}
+              ayuda={`Máximo ${OBSERVACIONES_MAXIMA} caracteres`}
+            >
+              <textarea
+                {...atributos("observaciones")}
+                value={valores.observaciones}
+                onChange={(e) => cambiar("observaciones", e.target.value)}
+                placeholder="Información adicional (opcional)"
+                rows={2}
+                className={`${claseControl(errores.observaciones)} resize-y py-2`}
+              />
+            </Campo>
+          </div>
         </fieldset>
 
-        <div className="grid grid-cols-[1fr_auto] gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="submit"
             disabled={guardando}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00B9C7] px-3 text-sm font-semibold text-white transition hover:bg-[#009EAD] disabled:cursor-wait disabled:opacity-80"
+            className="inline-flex h-10 items-center justify-center gap-2 bg-[#008994] px-5 text-xs font-semibold text-white transition hover:bg-[#00747E] disabled:cursor-wait disabled:opacity-80"
           >
-            {guardando && <LoaderCircle size={15} aria-hidden="true" className="animate-spin" />}
-            <span className="whitespace-nowrap">{guardando ? "Guardando…" : "Guardar intervención"}</span>
+            {guardando && (
+              <LoaderCircle
+                size={14}
+                aria-hidden="true"
+                className="animate-spin"
+              />
+            )}
+            <span>
+              {guardando
+                ? "Guardando…"
+                : editando
+                ? "Guardar cambios"
+                : "Guardar intervención"}
+            </span>
           </button>
           <button
             type="button"
             onClick={limpiar}
             disabled={guardando}
-            className="h-11 rounded-lg border border-[#DCE5EA] bg-white px-4 text-sm font-semibold text-[#29434D] transition hover:bg-[#F6F9FB] disabled:opacity-60"
+            className="h-10 border border-[#DCE5EA] bg-white px-4 text-xs font-semibold text-[#164652] transition hover:bg-[#F6F9FB] disabled:opacity-60"
           >
             Cancelar
           </button>
@@ -382,16 +370,17 @@ function FormularioIntervencion({
   );
 }
 
-/* ------------------------------- Listado ----------------------------- */
-
 function EsqueletoListado() {
   return (
     <span aria-hidden="true" className="block divide-y divide-[#EEF2F4]">
       {[1, 2, 3, 4].map((fila) => (
-        <span key={fila} className="flex animate-pulse items-center gap-4 px-4 py-4">
-          <span className="block h-3 w-24 rounded bg-[#EEF2F4]" />
-          <span className="block h-3 flex-1 rounded bg-[#EEF2F4]" />
-          <span className="hidden h-3 w-20 rounded bg-[#EEF2F4] sm:block" />
+        <span
+          key={fila}
+          className="flex animate-pulse items-center gap-4 px-4 py-4"
+        >
+          <span className="block h-3 w-24 bg-[#EEF2F4]" />
+          <span className="block h-3 flex-1 bg-[#EEF2F4]" />
+          <span className="hidden h-3 w-20 bg-[#EEF2F4] sm:block" />
         </span>
       ))}
     </span>
@@ -400,48 +389,68 @@ function EsqueletoListado() {
 
 function TipoBadge({ tipo }: { readonly tipo: string }) {
   return (
-    <span className="inline-flex whitespace-nowrap rounded-full bg-[#E4F8F8] px-2.5 py-1 text-xs font-medium text-[#007F8A]">
+    <span className="inline-flex whitespace-nowrap bg-[#E4F8F8] px-2.5 py-1 text-xs font-semibold text-[#007F8A]">
       {tipo}
     </span>
   );
 }
 
-function Listado({
-  estadoCarga,
-  mensajeError,
-  intervenciones,
-  onReintentar,
-}: {
-  readonly estadoCarga: EstadoCarga;
-  readonly mensajeError: string;
-  readonly intervenciones: readonly Intervencion[];
-  readonly onReintentar: () => void;
-}) {
-  const [busqueda, setBusqueda] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [desde, setDesde] = useState("");
+export function IntervencionesPage({
+  gateway: gatewayInyectado,
+  hoy = hoyEnBogota(),
+}: IntervencionesPageProps) {
+  const [gateway] = useState<IntervencionesGateway>(
+    () => gatewayInyectado ?? obtenerIntervencionesGateway()
+  );
 
-  const filtradas = useMemo(() => {
-    const texto = normalizar(busqueda);
+  const [editando, setEditando] = useState<Intervencion | null>(null);
+  const [aviso, setAviso] = useState("");
 
-    return intervenciones.filter(
-      (item) =>
-        (!tipo || item.tipo === tipo) &&
-        (!desde || item.fecha >= desde) &&
-        (!texto || normalizar(`${item.tipo} ${item.descripcion} ${item.observaciones}`).includes(texto))
-    );
-  }, [intervenciones, busqueda, tipo, desde]);
+  const {
+    datos: pagina,
+    items: intervenciones,
+    cargando,
+    error: mensajeError,
+    q,
+    desde,
+    hasta,
+    setPage,
+    setPageSize,
+    setQ,
+    setDesde,
+    setHasta,
+    limpiarFiltros,
+    recargar,
+  } = useListadoPaginado({
+    fetcher: (consulta) => gateway.listar(consulta),
+    sincronizarUrl: true,
+    mensajeErrorDefecto: "Verifica tu conexión e inténtalo nuevamente.",
+  });
 
-  const hayFiltros = Boolean(busqueda || tipo || desde);
+  const hayFiltros = Boolean(q.trim() || desde || hasta);
 
-  function limpiarFiltros() {
-    setBusqueda("");
-    setTipo("");
-    setDesde("");
+  async function guardar(
+    entrada: IntervencionEntrada,
+    idEdicion: string | null
+  ) {
+    setAviso("");
+    if (idEdicion && gateway.actualizar) {
+      const actualizada = await gateway.actualizar(idEdicion, entrada);
+      setAviso(
+        `La intervención de tipo “${actualizada.tipo}” se actualizó correctamente.`
+      );
+    } else {
+      const creada = await gateway.registrar(entrada);
+      setAviso(
+        `La intervención de tipo “${creada.tipo}” se registró correctamente.`
+      );
+    }
+    setEditando(null);
+    recargar();
   }
 
-  function contenido() {
-    if (estadoCarga === "cargando") {
+  function renderizarContenidoTabla() {
+    if (cargando) {
       return (
         <output className="block" aria-label="Cargando intervenciones">
           <span className="sr-only">Cargando intervenciones…</span>
@@ -450,18 +459,23 @@ function Listado({
       );
     }
 
-    if (estadoCarga === "error") {
+    if (mensajeError) {
       return (
-        <div role="alert" className="flex flex-col items-center px-6 py-12 text-center">
+        <div
+          role="alert"
+          className="flex flex-col items-center px-6 py-12 text-center"
+        >
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF0F0] text-[#D64545]">
             <ServerCrash size={22} aria-hidden="true" />
           </span>
-          <p className="mt-4 text-sm font-semibold text-[#203B45]">No fue posible cargar las intervenciones</p>
+          <p className="mt-4 text-sm font-semibold text-[#203B45]">
+            No fue posible cargar las intervenciones
+          </p>
           <p className="mt-1 max-w-sm text-sm text-[#718895]">{mensajeError}</p>
           <button
             type="button"
-            onClick={onReintentar}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#DCE5EA] px-4 py-2 text-sm font-semibold text-[#29434D] transition hover:bg-[#F6F9FB]"
+            onClick={recargar}
+            className="mt-4 inline-flex items-center gap-2 border border-[#DCE5EA] px-4 py-2 text-xs font-semibold text-[#29434D] transition hover:bg-[#F6F9FB]"
           >
             <RefreshCw size={14} aria-hidden="true" />
             <span>Reintentar</span>
@@ -470,25 +484,22 @@ function Listado({
       );
     }
 
-    if (filtradas.length === 0) {
+    if (intervenciones.length === 0) {
       return (
         <div className="flex flex-col items-center px-6 py-12 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E4F8F8] text-[#009EAD]">
             <ClipboardCheck size={22} aria-hidden="true" />
           </span>
           <p className="mt-4 text-sm font-semibold text-[#203B45]">
-            {hayFiltros ? "No hay intervenciones con los filtros aplicados" : "Aún no hay intervenciones registradas"}
-          </p>
-          <p className="mt-1 max-w-sm text-sm text-[#718895]">
             {hayFiltros
-              ? "Prueba con otro texto, tipo o fecha."
-              : "Usa el formulario para registrar la primera acción sanitaria del albergue."}
+              ? "No hay intervenciones con los filtros aplicados"
+              : "Aún no hay intervenciones registradas"}
           </p>
           {hayFiltros && (
             <button
               type="button"
               onClick={limpiarFiltros}
-              className="mt-4 rounded-lg border border-[#DCE5EA] px-4 py-2 text-sm font-semibold text-[#29434D] transition hover:bg-[#F6F9FB]"
+              className="mt-4 border border-[#DCE5EA] px-4 py-2 text-xs font-semibold text-[#29434D] transition hover:bg-[#F6F9FB]"
             >
               Limpiar filtros
             </button>
@@ -500,41 +511,79 @@ function Listado({
     return (
       <>
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[640px] text-left text-sm text-[#29434D]">
-            <caption className="sr-only">Historial de intervenciones sanitarias</caption>
+          <table className="w-full min-w-[640px] text-left text-xs text-[#29434D]">
+            <caption className="sr-only">
+              Historial de intervenciones sanitarias
+            </caption>
             <thead>
-              <tr className="bg-[#F6F9FB] text-xs text-[#718895]">
-                <th scope="col" className="px-4 py-3 font-medium">Fecha</th>
-                <th scope="col" className="px-3 py-3 font-medium">Tipo</th>
-                <th scope="col" className="px-4 py-3 font-medium">Descripción</th>
+              <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] font-semibold text-[#53636B]">
+                <th scope="col" className="px-4 py-3">
+                  Fecha
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Tipo
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Descripción
+                </th>
+                {gateway.actualizar && (
+                  <th scope="col" className="px-4 py-3">
+                    Acción
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F4]">
-              {filtradas.map((item) => (
-                <tr key={item.id} className="align-top">
-                  <td className="whitespace-nowrap px-4 py-3.5">{formatearFecha(item.fecha)}</td>
-                  <td className="px-3 py-3.5"><TipoBadge tipo={item.tipo} /></td>
+              {intervenciones.map((item) => (
+                <tr key={item.id} className="align-top hover:bg-[#FAFCFD]">
+                  <td className="whitespace-nowrap px-4 py-3.5 font-medium text-[#164652]">
+                    {formatearFecha(item.fecha)}
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <TipoBadge tipo={item.tipo} />
+                  </td>
                   <td className="px-4 py-3.5">
-                    <p>{item.descripcion}</p>
+                    <p className="text-sm">{item.descripcion}</p>
                     {item.observaciones && (
-                      <p className="mt-1 text-xs text-[#8297A1]">
+                      <p className="mt-1 text-xs text-[#718895]">
                         <span className="font-medium">Observaciones: </span>
                         <span>{item.observaciones}</span>
                       </p>
                     )}
                   </td>
+                  {gateway.actualizar && (
+                    <td className="px-4 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditando(item);
+                          enfocarFormulario();
+                        }}
+                        aria-label={`Editar intervención de ${item.tipo}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-[#008994] transition hover:bg-[#E6F9FA]"
+                      >
+                        <Pencil size={13} aria-hidden="true" />
+                        <span>Editar</span>
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <ul aria-label="Intervenciones registradas" className="space-y-3 p-3 md:hidden">
-          {filtradas.map((item) => (
-            <li key={item.id} className="rounded-xl border border-[#E4EBEF] p-3">
+        <ul
+          aria-label="Intervenciones registradas"
+          className="space-y-3 p-3 md:hidden"
+        >
+          {intervenciones.map((item) => (
+            <li key={item.id} className="border border-[#E4EBEF] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <TipoBadge tipo={item.tipo} />
-                <span className="text-xs text-[#718895]">{formatearFecha(item.fecha)}</span>
+                <span className="text-xs text-[#718895]">
+                  {formatearFecha(item.fecha)}
+                </span>
               </div>
               <p className="mt-2 text-sm text-[#29434D]">{item.descripcion}</p>
               {item.observaciones && (
@@ -546,160 +595,94 @@ function Listado({
             </li>
           ))}
         </ul>
-
-        <p className="border-t border-[#EEF2F4] px-4 py-3 text-xs text-[#8297A1]">
-          Mostrando {filtradas.length} de {intervenciones.length} intervenciones
-        </p>
       </>
     );
   }
 
   return (
-    <section
-      aria-labelledby="titulo-listado"
-      aria-busy={estadoCarga === "cargando"}
-      className="min-w-0 rounded-xl border border-[#E4EBEF] bg-white shadow-sm"
-    >
-      <div className="space-y-3 p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 id="titulo-listado" className="text-lg font-semibold text-[#203B45]">
-            Historial de intervenciones
-          </h2>
-          <label className="relative sm:w-64">
-            <span className="sr-only">Buscar intervención</span>
-            <Search size={15} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8297A1]" />
-            <input
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar intervención"
-              className={`${claseControl()} h-10 pl-9`}
-            />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-[#29434D]">
-            <span>Tipo</span>
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`${claseControl()} mt-1 h-10`}>
-              <option value="">Todos los tipos</option>
-              {TIPOS_INTERVENCION.map((opcion) => (
-                <option key={opcion} value={opcion}>{opcion}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs font-medium text-[#29434D]">
-            <span>Desde la fecha</span>
-            <input
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-              className={`${claseControl()} mt-1 h-10`}
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="border-t border-[#EEF2F4]">{contenido()}</div>
-    </section>
-  );
-}
-
-/* -------------------------------- Página ----------------------------- */
-
-export function IntervencionesPage({
-  gateway: gatewayInyectado,
-  modoDemostracion = !process.env.NEXT_PUBLIC_API_URL,
-  hoy = hoyEnBogota(),
-}: IntervencionesPageProps) {
-  const [gateway] = useState<IntervencionesGateway>(() => gatewayInyectado ?? obtenerIntervencionesGateway());
-  const [intervenciones, setIntervenciones] = useState<Intervencion[]>([]);
-  const [estadoCarga, setEstadoCarga] = useState<EstadoCarga>("cargando");
-  const [mensajeError, setMensajeError] = useState("");
-  const [intento, setIntento] = useState(0);
-  const [aviso, setAviso] = useState("");
-
-  useEffect(() => {
-    let vigente = true;
-
-    gateway
-      .listar()
-      .then((datos) => {
-        if (!vigente) return;
-        setIntervenciones(ordenarIntervenciones(datos));
-        setEstadoCarga("listo");
-      })
-      .catch((error: unknown) => {
-        if (!vigente) return;
-        setMensajeError(error instanceof ApiError ? error.message : "Verifica tu conexión e inténtalo nuevamente.");
-        setEstadoCarga("error");
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, [gateway, intento]);
-
-  function reintentar() {
-    setEstadoCarga("cargando");
-    setIntento((valor) => valor + 1);
-  }
-
-  async function registrar(entrada: IntervencionEntrada) {
-    setAviso("");
-    const creada = await gateway.registrar(entrada);
-    setIntervenciones((lista) => ordenarIntervenciones([creada, ...lista]));
-    setAviso(`La intervención de tipo “${creada.tipo}” se registró correctamente.`);
-  }
-
-  return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-3 border-b border-[#DCE6EA] pb-4 sm:flex-row sm:items-center">
         <div>
-          <p className="mb-2 text-xs text-[#8297A1]">Mi albergue / Intervenciones</p>
-          <h1 className="text-2xl font-semibold text-[#203B45]">Gestión de intervenciones</h1>
-          <p className="mt-1 text-sm text-[#718895]">
-            Registra y consulta las acciones sanitarias realizadas en tu albergue.
-          </p>
+          <h1 className="text-2xl font-bold text-[#164652]">
+            Gestión de intervenciones
+          </h1>
         </div>
 
         <button
           type="button"
           onClick={enfocarFormulario}
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#00B9C7] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#009EAD]"
+          className="flex items-center justify-center gap-2 bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E]"
         >
-          <Plus size={16} aria-hidden="true" />
+          <Plus size={15} aria-hidden="true" />
           <span>Registrar intervención</span>
         </button>
       </div>
 
-      {modoDemostracion && (
-        <p className="rounded-lg bg-[#FFF7E4] px-3 py-2 text-xs text-[#7A5300]">
-          Datos demostrativos: la API de intervenciones aún no está configurada (<code>NEXT_PUBLIC_API_URL</code>).
-        </p>
-      )}
-
       {aviso && (
-        <output className="flex items-start gap-2 rounded-lg border border-[#CDEBDD] bg-[#E9F7F0] p-3 text-sm text-[#23845A]">
-          <CheckCircle2 size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+        <output className="flex items-start gap-2 border-l-4 border-[#168052] bg-[#E9F7F0] p-3 text-sm text-[#23845A]">
+          <CheckCircle2
+            size={16}
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+          />
           <span className="flex-1">{aviso}</span>
-          <button type="button" aria-label="Cerrar aviso" onClick={() => setAviso("")}>
+          <button
+            type="button"
+            aria-label="Cerrar aviso"
+            onClick={() => setAviso("")}
+          >
             <X size={15} aria-hidden="true" />
           </button>
         </output>
       )}
 
-      {estadoCarga === "listo" && <Resumen intervenciones={intervenciones} hoy={hoy} />}
+      <FormularioIntervencion
+        key={editando?.id ?? "nueva"}
+        hoy={hoy}
+        editando={editando}
+        onGuardar={guardar}
+        onCancelarEdicion={() => setEditando(null)}
+      />
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Listado
-          estadoCarga={estadoCarga}
-          mensajeError={mensajeError}
-          intervenciones={intervenciones}
-          onReintentar={reintentar}
+      <section
+        aria-labelledby="titulo-listado"
+        aria-busy={cargando}
+        className="min-w-0 border-t-2 border-[#008994] bg-white shadow-xs"
+      >
+        <div className="flex flex-col gap-3 border-b border-[#EEF2F4] p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2
+              id="titulo-listado"
+              className="text-base font-bold text-[#164652]"
+            >
+              Historial de intervenciones ({pagina.total})
+            </h2>
+          </div>
+
+          <BarraFiltrosServidor
+            q={q}
+            onQChange={setQ}
+            placeholderQ="Tipo, descripción u observaciones…"
+            ariaLabelQ="Buscar intervención"
+            desde={desde}
+            hasta={hasta}
+            onDesdeChange={setDesde}
+            onHastaChange={setHasta}
+            onLimpiar={limpiarFiltros}
+          />
+        </div>
+
+        <div>{renderizarContenidoTabla()}</div>
+
+        <ControlesPaginacion
+          pagina={pagina}
+          etiquetaItems="intervenciones"
+          cargando={cargando}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          ariaLabel="Paginación de intervenciones"
         />
-        <FormularioIntervencion hoy={hoy} onRegistrar={registrar} />
-      </div>
+      </section>
     </div>
   );
 }

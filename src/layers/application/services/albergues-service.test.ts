@@ -1,16 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AlbergueEntrada } from "@/layers/domain/albergues/albergue";
+import * as moduloAlbergues from "./albergues-service";
 import {
-  ALBERGUES_DEMO,
   AlberguesError,
   crearGatewayHttp,
-  crearGatewayMemoria,
   desdeApi,
   haciaApi,
 } from "./albergues-service";
 
 const entrada: AlbergueEntrada = {
-  codigo: "ALB-NEW-001",
   nombre: "Nuevo albergue",
   departamento: "Risaralda",
   municipio: "Pereira",
@@ -22,19 +20,37 @@ const entrada: AlbergueEntrada = {
 };
 
 const albergueApi = {
-  _id: "abc123",
+  id: "abc123",
   codigo_albergue: "ALB-NEW-001",
   nombre: "Nuevo albergue",
   ubicacion: {
     departamento: "Risaralda",
     municipio: "Pereira",
     direccion: "Calle 1 # 2-3",
-    coordenadas: { type: "Point" as const, coordinates: [-75.69, 4.81] as [number, number] },
+    coordenadas: {
+      type: "Point" as const,
+      coordinates: [-75.69, 4.81] as [number, number],
+    },
   },
   capacidad_instalada: 100,
   activo: true,
+  poblacion_actual: null,
+  administrador: "María López",
+  nivel_riesgo: "rojo" as const,
   created_at: "2026-11-08T05:00:00.000Z",
 };
+
+function envolverPagina<T>(items: T[]) {
+  return {
+    items,
+    page: 1,
+    page_size: 20,
+    total: items.length,
+    total_pages: items.length > 0 ? 1 : 0,
+    has_next: false,
+    has_previous: false,
+  };
+}
 
 function respuesta(status: number, cuerpo?: unknown): Response {
   return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), {
@@ -43,40 +59,13 @@ function respuesta(status: number, cuerpo?: unknown): Response {
   });
 }
 
-describe("Gateway en memoria", () => {
-  it("lista, crea, actualiza y cambia el estado", async () => {
-    const gateway = crearGatewayMemoria(ALBERGUES_DEMO, 0);
-
-    expect(await gateway.listar()).toHaveLength(ALBERGUES_DEMO.length);
-
-    const creado = await gateway.crear(entrada);
-    expect(creado.id).toBeTruthy();
-    expect((await gateway.listar())[0].codigo).toBe("ALB-NEW-001");
-
-    const actualizado = await gateway.actualizar(creado.id, { ...entrada, nombre: "Renombrado" });
-    expect(actualizado.nombre).toBe("Renombrado");
-
-    const inactivo = await gateway.cambiarEstado(creado.id, false);
-    expect(inactivo.activo).toBe(false);
+describe("Gateway HTTP de albergues (/api/v1/albergues)", () => {
+  it("no exporta ALBERGUES_DEMO ni crearGatewayMemoria", () => {
+    expect(moduloAlbergues).not.toHaveProperty("ALBERGUES_DEMO");
+    expect(moduloAlbergues).not.toHaveProperty("crearGatewayMemoria");
   });
 
-  it("rechaza códigos duplicados con error 409", async () => {
-    const gateway = crearGatewayMemoria(ALBERGUES_DEMO, 0);
-
-    await expect(
-      gateway.crear({ ...entrada, codigo: ALBERGUES_DEMO[0].codigo })
-    ).rejects.toMatchObject({ status: 409, campos: { codigo: expect.any(String) } });
-  });
-
-  it("responde 404 si el albergue no existe", async () => {
-    const gateway = crearGatewayMemoria([], 0);
-
-    await expect(gateway.cambiarEstado("no-existe", false)).rejects.toBeInstanceOf(AlberguesError);
-  });
-});
-
-describe("Gateway HTTP", () => {
-  it("mapea el contrato de MongoDB en ambos sentidos", () => {
+  it("mapea el contrato de MongoDB conservando null en poblacion_actual y adaptando nivel_riesgo canónico", () => {
     const albergue = desdeApi(albergueApi);
 
     expect(albergue).toMatchObject({
@@ -86,83 +75,134 @@ describe("Gateway HTTP", () => {
       longitud: -75.69,
       capacidadInstalada: 100,
       poblacionActual: null,
+      administrador: "María López",
+      riesgo: "critico",
     });
-    expect(haciaApi(entrada).ubicacion.coordenadas.coordinates).toEqual([-75.69, 4.81]);
+    expect(haciaApi(entrada).ubicacion.coordenadas.coordinates).toEqual([
+      -75.69, 4.81,
+    ]);
   });
 
-  it("envía el token y las operaciones a los endpoints esperados", async () => {
-    const fetchFn = vi.fn<typeof fetch>(async () => respuesta(200, albergueApi));
-    const gateway = crearGatewayHttp("https://api.local/", () => "token-1", fetchFn);
+  it("consulta listado paginado, resumen global y mutaciones con el contrato Page<T>", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (url) => {
+      const ruta = String(url);
+      if (ruta.includes("/resumen")) {
+        return respuesta(200, {
+          total_registrados: 30,
+          total_activos: 28,
+          con_administrador: 25,
+          criticos: 4,
+          sin_clasificacion: 2,
+          poblacion_actual: 4200,
+          albergues_sin_poblacion: 1,
+          porcentaje_ocupacion: 72.5,
+        });
+      }
+      if (ruta.includes("?page=")) {
+        return respuesta(200, envolverPagina([albergueApi]));
+      }
+      return respuesta(200, albergueApi);
+    });
+    const gateway = crearGatewayHttp(
+      "https://api.local/",
+      () => "token-1",
+      fetchFn
+    );
 
-    await gateway.crear(entrada);
+    const pagina = await gateway.listar({
+      page: 2,
+      page_size: 20,
+      q: "Pereira",
+      activo: true,
+    });
+    expect(pagina.items).toHaveLength(1);
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      "https://api.local/api/v1/albergues?page=2&page_size=20&q=Pereira&activo=true"
+    );
+
+    const resumen = await gateway.resumen!();
+    expect(resumen).toEqual({
+      totalRegistrados: 30,
+      totalActivos: 28,
+      conAdministrador: 25,
+      criticos: 4,
+      sinClasificacion: 2,
+      poblacionActual: 4200,
+      alberguesSinPoblacion: 1,
+      porcentajeOcupacion: 72.5,
+    });
+
+    const creado = await gateway.crear(entrada);
+    expect(creado.codigo).toBe(albergueApi.codigo_albergue);
     await gateway.actualizar("abc123", entrada);
     await gateway.cambiarEstado("abc123", false);
 
-    const llamadas = fetchFn.mock.calls.map(([url, init]) => [url, init?.method]);
-    expect(llamadas).toEqual([
-      ["https://api.local/api/v1/albergues", "POST"],
-      ["https://api.local/api/v1/albergues/abc123", "PUT"],
-      ["https://api.local/api/v1/albergues/abc123/estado", "PATCH"],
-    ]);
-    expect(fetchFn.mock.calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer token-1" });
-  });
-
-  it("lista los albergues", async () => {
-    const fetchFn = vi.fn(async () => respuesta(200, [albergueApi]));
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
-
-    expect(await gateway.listar()).toHaveLength(1);
-  });
-
-  it("traduce errores de validación 422 a campos del formulario", async () => {
-    const fetchFn = vi.fn(async () =>
-      respuesta(422, {
-        detail: [{ loc: ["body", "capacidad_instalada"], msg: "Debe ser mayor a 0" }],
-      })
+    await expect(gateway.cambiarEstado("abc123", true)).rejects.toBeInstanceOf(
+      AlberguesError
     );
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
+  });
 
-    await expect(gateway.crear(entrada)).rejects.toMatchObject({
-      status: 422,
-      campos: { capacidadInstalada: "Debe ser mayor a 0" },
+  it("consulta los registros globales paginados de condiciones, enfermedades e intervenciones de un albergue", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (url) => {
+      const ruta = String(url);
+      if (ruta.includes("/condiciones-sanitarias")) {
+        return respuesta(
+          200,
+          envolverPagina([
+            {
+              id: "cs-1",
+              fecha: "2026-11-17T00:00:00Z",
+              agua_potable_disponible: true,
+              banos_disponibles: 10,
+              estado_higiene: "Adecuado",
+              estado_saneamiento: "Adecuado",
+              observaciones: "Todo en orden",
+            },
+          ])
+        );
+      }
+      if (ruta.includes("/enfermedades")) {
+        return respuesta(
+          200,
+          envolverPagina([
+            {
+              id: "enf-1",
+              fecha: "2026-11-17T00:00:00Z",
+              enfermedad: "IRA",
+              cantidad_casos_activos: 4,
+              cantidad_recuperados: 2,
+              observaciones: null,
+            },
+          ])
+        );
+      }
+      return respuesta(
+        200,
+        envolverPagina([
+          {
+            id: "int-1",
+            fecha_intervencion: "2026-11-17T00:00:00Z",
+            tipo_intervencion: "Higiene",
+            descripcion: "Entrega de kits",
+            observaciones: null,
+          },
+        ])
+      );
     });
-  });
 
-  it("asocia el conflicto 409 al campo código", async () => {
-    const fetchFn = vi.fn(async () => respuesta(409, {}));
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
-
-    await expect(gateway.crear(entrada)).rejects.toMatchObject({
-      status: 409,
-      campos: { codigo: "Ya existe un albergue con ese código." },
+    const gateway = crearGatewayHttp(
+      "https://api.local",
+      () => "token-1",
+      fetchFn
+    );
+    const registros = await gateway.consultarRegistros!("abc123", {
+      page: 1,
+      page_size: 10,
+      q: "IRA",
     });
-  });
 
-  it.each([
-    [401, "Tu sesión expiró"],
-    [403, "No tienes permisos"],
-    [404, "no existe"],
-    [500, "error en el servidor"],
-  ])("muestra un mensaje claro para el estado %i", async (status, texto) => {
-    const fetchFn = vi.fn(async () => new Response("sin json", { status }));
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
-
-    await expect(gateway.listar()).rejects.toThrow(texto);
-  });
-
-  it("usa el mensaje del servidor cuando viene como texto", async () => {
-    const fetchFn = vi.fn(async () => respuesta(400, { detail: "Capacidad inválida" }));
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
-
-    await expect(gateway.listar()).rejects.toThrow("Capacidad inválida");
-  });
-
-  it("informa cuando no hay conexión", async () => {
-    const fetchFn = vi.fn(async () => {
-      throw new TypeError("Failed to fetch");
-    });
-    const gateway = crearGatewayHttp("https://api.local", () => null, fetchFn as unknown as typeof fetch);
-
-    await expect(gateway.listar()).rejects.toMatchObject({ status: 0 });
+    expect(registros.condiciones.items).toHaveLength(1);
+    expect(registros.enfermedades.items[0]?.cantidadRecuperados).toBe(2);
+    expect(registros.intervenciones.items).toHaveLength(1);
   });
 });

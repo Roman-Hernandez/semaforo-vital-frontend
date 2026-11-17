@@ -41,7 +41,6 @@ describe("Validación de albergues", () => {
     expect(Object.keys(errores).sort()).toEqual(
       [
         "capacidadInstalada",
-        "codigo",
         "departamento",
         "direccion",
         "latitud",
@@ -53,9 +52,8 @@ describe("Validación de albergues", () => {
     expect(errores.nombre).toBe("El nombre es obligatorio.");
   });
 
-  it("valida el formato del código", () => {
-    expect(validarAlbergue({ ...valido, codigo: "alb 01" }).codigo).toMatch(/mayúsculas/);
-    expect(validarAlbergue({ ...valido, codigo: "A".repeat(21) }).codigo).toBeDefined();
+  it("no exige código porque lo genera el backend", () => {
+    expect(validarAlbergue({ ...valido, codigo: "" })).toEqual({});
   });
 
   it("valida longitudes mínimas y máximas de texto", () => {
@@ -87,7 +85,6 @@ describe("Conversión de datos del albergue", () => {
     });
 
     expect(entrada).toMatchObject({
-      codigo: "ALB-PER-010",
       nombre: "Albergue Norte",
       latitud: 4.5,
       longitud: -75.6946,

@@ -2,36 +2,34 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
   Ellipsis,
   Eye,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Search,
   ServerCrash,
   Tent,
 } from "lucide-react";
-import {
-  calcularOcupacion,
-  type Albergue,
-  type NivelRiesgo,
-} from "@/layers/domain/albergues/albergue";
+import type { Albergue } from "@/layers/domain/albergues/albergue";
+import type { Page } from "@/layers/application/services/paginacion";
+import { ControlesPaginacion } from "@/components/shared/ControlesPaginacion";
 import { EstadoBadge, RiesgoBadge } from "./insignias";
 
 export type FiltroEstado = "todos" | "activos" | "inactivos";
-export type FiltroRiesgo = "todos" | NivelRiesgo;
 
 export interface FiltrosAlbergues {
   busqueda: string;
   estado: FiltroEstado;
-  riesgo: FiltroRiesgo;
+  desde: string;
+  hasta: string;
 }
 
 export const FILTROS_INICIALES: FiltrosAlbergues = {
   busqueda: "",
   estado: "todos",
-  riesgo: "todos",
+  desde: "",
+  hasta: "",
 };
 
 export type EstadoCarga = "cargando" | "listo" | "error";
@@ -41,16 +39,13 @@ interface AlberguesListaProps {
   readonly mensajeError: string;
   readonly totalRegistrados: number;
   readonly totalActivos: number;
-  readonly albergues: readonly Albergue[];
-  readonly totalFiltrados: number;
-  readonly pagina: number;
-  readonly totalPaginas: number;
-  readonly porPagina: number;
+  readonly pagina: Page<Albergue>;
   readonly filtros: FiltrosAlbergues;
   readonly seleccionadoId: string | null;
   readonly puedeAdministrar: boolean;
   readonly onFiltrosChange: (filtros: FiltrosAlbergues) => void;
   readonly onPaginaChange: (pagina: number) => void;
+  readonly onPageSizeChange: (pageSize: number) => void;
   readonly onConsultar: (albergue: Albergue) => void;
   readonly onEditar: (albergue: Albergue) => void;
   readonly onCambiarEstado: (albergue: Albergue) => void;
@@ -59,28 +54,11 @@ interface AlberguesListaProps {
 }
 
 const CONTROL =
-  "h-10 rounded-lg border border-[#E3EAEE] bg-white px-3 text-[13px] text-[#172126] outline-none transition focus:border-[#00C3D0] focus:ring-2 focus:ring-[#00C3D0]/20";
-
-function Ocupacion({ albergue }: { readonly albergue: Albergue }) {
-  const ocupacion = calcularOcupacion(albergue);
-
-  if (albergue.poblacionActual === null) {
-    return <span className="text-[#829198]">Sin datos</span>;
-  }
-
-  return (
-    <span className="flex flex-col">
-      <span className="text-[#172126]">{albergue.poblacionActual}</span>
-      <span className="whitespace-nowrap text-[10px] text-[#829198]">
-        {ocupacion}% ocupación
-      </span>
-    </span>
-  );
-}
+  "h-9 border border-[#DCE6EA] bg-white px-3 text-xs text-[#164652] outline-none transition focus:border-[#008994]";
 
 function IconoAlbergue() {
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E6F9FA] text-[#008E99]">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#E6F9FA] text-[#008994]">
       <Tent size={18} aria-hidden="true" />
     </span>
   );
@@ -127,7 +105,7 @@ function MenuEstado({
         aria-haspopup="menu"
         aria-expanded={abierto}
         onClick={() => setAbierto((valor) => !valor)}
-        className="rounded-md p-1.5 text-[#53636B] transition hover:bg-[#F3F8FA]"
+        className="p-1.5 text-[#53636B] transition hover:bg-[#F3F8FA]"
       >
         <Ellipsis size={16} aria-hidden="true" />
       </button>
@@ -135,7 +113,7 @@ function MenuEstado({
       {abierto && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-[#E3EAEE] bg-white p-1 shadow-lg"
+          className="absolute top-full right-0 z-20 mt-1 w-40 border border-[#DCE6EA] bg-white p-1 shadow-lg"
         >
           <button
             type="button"
@@ -144,8 +122,8 @@ function MenuEstado({
               setAbierto(false);
               onCambiarEstado(albergue);
             }}
-            className={`w-full rounded-md px-3 py-2 text-left text-[13px] font-semibold transition hover:bg-[#F3F8FA] ${
-              albergue.activo ? "text-[#CF343B]" : "text-[#008E99]"
+            className={`w-full px-3 py-2 text-left text-xs font-semibold transition hover:bg-[#F3F8FA] ${
+              albergue.activo ? "text-[#C53030]" : "text-[#008994]"
             }`}
           >
             {albergue.activo ? "Desactivar" : "Reactivar"}
@@ -160,14 +138,17 @@ function FilasCargando() {
   return (
     <div aria-hidden="true" className="divide-y divide-[#EEF2F4]">
       {[1, 2, 3, 4, 5].map((fila) => (
-        <div key={fila} className="flex animate-pulse items-center gap-4 px-4 py-4">
-          <div className="h-9 w-9 rounded-lg bg-[#EEF2F4]" />
+        <div
+          key={fila}
+          className="flex animate-pulse items-center gap-4 px-4 py-4"
+        >
+          <div className="h-9 w-9 bg-[#EEF2F4]" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-1/3 rounded bg-[#EEF2F4]" />
-            <div className="h-2.5 w-1/5 rounded bg-[#EEF2F4]" />
+            <div className="h-3 w-1/3 bg-[#EEF2F4]" />
+            <div className="h-2.5 w-1/5 bg-[#EEF2F4]" />
           </div>
-          <div className="hidden h-3 w-24 rounded bg-[#EEF2F4] sm:block" />
-          <div className="h-6 w-16 rounded-full bg-[#EEF2F4]" />
+          <div className="hidden h-3 w-24 bg-[#EEF2F4] sm:block" />
+          <div className="h-6 w-16 bg-[#EEF2F4]" />
         </div>
       ))}
     </div>
@@ -175,118 +156,57 @@ function FilasCargando() {
 }
 
 function EstadoVacio({
-  hayAlbergues,
+  hayFiltros,
   puedeAdministrar,
   onLimpiar,
   onRegistrar,
 }: {
-  readonly hayAlbergues: boolean;
+  readonly hayFiltros: boolean;
   readonly puedeAdministrar: boolean;
   readonly onLimpiar: () => void;
   readonly onRegistrar: () => void;
 }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F9FA] text-[#008E99]">
-        {hayAlbergues ? <Search size={22} aria-hidden="true" /> : <Tent size={22} aria-hidden="true" />}
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F9FA] text-[#008994]">
+        {hayFiltros ? (
+          <Search size={22} aria-hidden="true" />
+        ) : (
+          <Tent size={22} aria-hidden="true" />
+        )}
       </span>
 
-      <p className="mt-4 text-sm font-semibold text-[#172126]">
-        {hayAlbergues
+      <p className="mt-4 text-sm font-semibold text-[#164652]">
+        {hayFiltros
           ? "No se encontraron albergues con los filtros aplicados"
           : "Aún no hay albergues registrados"}
       </p>
 
-      <p className="mt-1 max-w-sm text-[13px] text-[#53636B]">
-        {hayAlbergues
-          ? "Prueba con otro nombre, código o municipio, o limpia los filtros."
+      <p className="mt-1 max-w-sm text-xs text-[#53636B]">
+        {hayFiltros
+          ? "Prueba con otro nombre, código, municipio, departamento o rango de fechas."
           : "Registra el primer centro habilitado para empezar su seguimiento."}
       </p>
 
-      {hayAlbergues && (
+      {hayFiltros && (
         <button
           type="button"
           onClick={onLimpiar}
-          className="mt-4 rounded-lg border border-[#E3EAEE] px-4 py-2 text-[13px] font-semibold text-[#172126] transition hover:bg-[#F8FAFB]"
+          className="mt-4 border border-[#DCE6EA] px-4 py-2 text-xs font-semibold text-[#164652] transition hover:bg-[#F8FAFB]"
         >
           Limpiar filtros
         </button>
       )}
 
-      {!hayAlbergues && puedeAdministrar && (
+      {!hayFiltros && puedeAdministrar && (
         <button
           type="button"
           onClick={onRegistrar}
-          className="mt-4 rounded-lg bg-[#00C3D0] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#00AEB9]"
+          className="mt-4 bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E]"
         >
           Registrar albergue
         </button>
       )}
-    </div>
-  );
-}
-
-function Paginacion({
-  pagina,
-  totalPaginas,
-  desde,
-  hasta,
-  total,
-  onPaginaChange,
-}: {
-  readonly pagina: number;
-  readonly totalPaginas: number;
-  readonly desde: number;
-  readonly hasta: number;
-  readonly total: number;
-  readonly onPaginaChange: (pagina: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3 border-t border-[#EEF2F4] px-4 py-4 text-[12px] text-[#829198] sm:flex-row sm:items-center sm:justify-between">
-      <p>
-        Mostrando {desde}–{hasta} de {total} albergues
-      </p>
-
-      <nav aria-label="Paginación de albergues" className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-label="Página anterior"
-          disabled={pagina <= 1}
-          onClick={() => onPaginaChange(pagina - 1)}
-          className="rounded-md p-1.5 text-[#008E99] transition hover:bg-[#E6F9FA] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
-
-        {Array.from({ length: totalPaginas }, (_, indice) => indice + 1).map(
-          (numero) => (
-            <button
-              key={numero}
-              type="button"
-              aria-label={`Página ${numero}`}
-              aria-current={numero === pagina ? "page" : undefined}
-              onClick={() => onPaginaChange(numero)}
-              className={`min-w-7 rounded-md px-2 py-1 text-[12px] font-semibold transition ${
-                numero === pagina
-                  ? "bg-[#E6F9FA] text-[#008E99]"
-                  : "text-[#008E99] hover:bg-[#F3F8FA]"
-              }`}
-            >
-              {numero}
-            </button>
-          )
-        )}
-
-        <button
-          type="button"
-          aria-label="Página siguiente"
-          disabled={pagina >= totalPaginas}
-          onClick={() => onPaginaChange(pagina + 1)}
-          className="rounded-md p-1.5 text-[#008E99] transition hover:bg-[#E6F9FA] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-      </nav>
     </div>
   );
 }
@@ -296,24 +216,26 @@ export function AlberguesLista({
   mensajeError,
   totalRegistrados,
   totalActivos,
-  albergues,
-  totalFiltrados,
   pagina,
-  totalPaginas,
-  porPagina,
   filtros,
   seleccionadoId,
   puedeAdministrar,
   onFiltrosChange,
   onPaginaChange,
+  onPageSizeChange,
   onConsultar,
   onEditar,
   onCambiarEstado,
   onReintentar,
   onRegistrar,
 }: AlberguesListaProps) {
-  const desde = totalFiltrados === 0 ? 0 : (pagina - 1) * porPagina + 1;
-  const hasta = Math.min(pagina * porPagina, totalFiltrados);
+  const albergues = pagina.items;
+  const hayFiltros = Boolean(
+    filtros.busqueda.trim() ||
+      filtros.estado !== "todos" ||
+      filtros.desde ||
+      filtros.hasta
+  );
 
   function contenido() {
     if (estadoCarga === "cargando") {
@@ -327,18 +249,21 @@ export function AlberguesLista({
 
     if (estadoCarga === "error") {
       return (
-        <div role="alert" className="flex flex-col items-center px-6 py-14 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FDECEE] text-[#CF343B]">
+        <div
+          role="alert"
+          className="flex flex-col items-center px-6 py-14 text-center"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FDECEC] text-[#C53030]">
             <ServerCrash size={22} aria-hidden="true" />
           </span>
-          <p className="mt-4 text-sm font-semibold text-[#172126]">
+          <p className="mt-4 text-sm font-semibold text-[#164652]">
             No fue posible cargar los albergues
           </p>
-          <p className="mt-1 max-w-sm text-[13px] text-[#53636B]">{mensajeError}</p>
+          <p className="mt-1 max-w-sm text-xs text-[#53636B]">{mensajeError}</p>
           <button
             type="button"
             onClick={onReintentar}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#E3EAEE] px-4 py-2 text-[13px] font-semibold text-[#172126] transition hover:bg-[#F8FAFB]"
+            className="mt-4 inline-flex items-center gap-2 border border-[#DCE6EA] px-4 py-2 text-xs font-semibold text-[#164652] transition hover:bg-[#F8FAFB]"
           >
             <RefreshCw size={14} aria-hidden="true" />
             Reintentar
@@ -350,7 +275,7 @@ export function AlberguesLista({
     if (albergues.length === 0) {
       return (
         <EstadoVacio
-          hayAlbergues={totalRegistrados > 0}
+          hayFiltros={hayFiltros || totalRegistrados > 0}
           puedeAdministrar={puedeAdministrar}
           onLimpiar={() => onFiltrosChange(FILTROS_INICIALES)}
           onRegistrar={onRegistrar}
@@ -360,19 +285,40 @@ export function AlberguesLista({
 
     return (
       <>
-        {/* TABLA: tabletas y computadores */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[720px] text-left text-[12px] text-[#53636B]">
-            <caption className="sr-only">Listado de albergues registrados</caption>
+        {/* Tabla escritorio */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-labelledby="titulo-albergues"
+          className="hidden overflow-x-auto md:block"
+        >
+          <table className="w-full min-w-[780px] text-left text-xs text-[#53636B]">
+            <caption className="sr-only">
+              Listado de albergues registrados
+            </caption>
             <thead>
-              <tr className="border-b border-[#EEF2F4] text-[10px] uppercase tracking-wide text-[#829198]">
-                <th scope="col" className="px-4 py-3 font-normal">Albergue</th>
-                <th scope="col" className="px-2 py-3 font-normal">Ubicación</th>
-                <th scope="col" className="px-2 py-3 font-normal">Población</th>
-                <th scope="col" className="px-2 py-3 font-normal">Administrador</th>
-                <th scope="col" className="px-2 py-3 font-normal">Riesgo</th>
-                <th scope="col" className="px-2 py-3 font-normal">Estado</th>
-                <th scope="col" className="px-4 py-3 font-normal">Acciones</th>
+              <tr className="border-b border-[#EEF2F4] bg-[#F8FAFB] text-xs font-semibold text-[#53636B]">
+                <th scope="col" className="px-4 py-3">
+                  Albergue
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Ubicación
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Población / Capacidad
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Riesgo
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Administrador
+                </th>
+                <th scope="col" className="px-3 py-3">
+                  Estado
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F4]">
@@ -380,46 +326,69 @@ export function AlberguesLista({
                 <tr
                   key={albergue.id}
                   className={`transition ${
-                    seleccionadoId === albergue.id ? "bg-[#F4FCFC]" : "hover:bg-[#FAFCFD]"
-                  } ${albergue.activo ? "" : "text-[#829198]"}`}
+                    seleccionadoId === albergue.id
+                      ? "bg-[#F4FCFC]"
+                      : "hover:bg-[#FAFCFD]"
+                  }`}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <IconoAlbergue />
                       <div>
-                        <p className={`text-[13px] font-semibold ${albergue.activo ? "text-[#172126]" : "text-[#53636B]"}`}>
+                        <p className="text-[13px] font-semibold text-[#164652]">
                           {albergue.nombre}
                         </p>
-                        <p className="text-[10px] text-[#829198]">{albergue.codigo}</p>
+                        <p className="text-[11px] text-[#718895]">
+                          {albergue.codigo}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-3">{albergue.municipio}</td>
-                  <td className="px-2 py-3"><Ocupacion albergue={albergue} /></td>
-                  <td className="px-2 py-3">{albergue.administrador ?? "Sin asignar"}</td>
-                  <td className="px-2 py-3"><RiesgoBadge riesgo={albergue.riesgo} /></td>
-                  <td className="px-2 py-3"><EstadoBadge activo={albergue.activo} /></td>
+                  <td className="px-3 py-3">
+                    {albergue.municipio}, {albergue.departamento}
+                  </td>
+                  <td className="px-3 py-3 font-medium text-[#164652]">
+                    <span className="font-semibold">
+                      {albergue.poblacionActual === null
+                        ? "Sin dato"
+                        : albergue.poblacionActual}
+                    </span>
+                    <span className="text-[#718895]"> · </span>
+                    <span>{albergue.capacidadInstalada} personas</span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <RiesgoBadge riesgo={albergue.riesgo} />
+                  </td>
+                  <td className="px-3 py-3">
+                    {albergue.administrador ?? "Sin asignar"}
+                  </td>
+                  <td className="px-3 py-3">
+                    <EstadoBadge activo={albergue.activo} />
+                  </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-0.5 text-[#008E99]">
+                    <div className="flex items-center gap-0.5 text-[#008994]">
                       <button
                         type="button"
                         aria-label={`Consultar ${albergue.nombre}`}
                         onClick={() => onConsultar(albergue)}
-                        className="rounded-md p-1.5 transition hover:bg-[#E6F9FA]"
+                        className="p-1.5 transition hover:bg-[#E6F9FA]"
                       >
                         <Eye size={16} aria-hidden="true" />
                       </button>
-                      {puedeAdministrar && (
+                      {puedeAdministrar && albergue.activo && (
                         <>
                           <button
                             type="button"
                             aria-label={`Editar ${albergue.nombre}`}
                             onClick={() => onEditar(albergue)}
-                            className="rounded-md p-1.5 text-[#53636B] transition hover:bg-[#F3F8FA]"
+                            className="p-1.5 text-[#53636B] transition hover:bg-[#F3F8FA]"
                           >
                             <Pencil size={15} aria-hidden="true" />
                           </button>
-                          <MenuEstado albergue={albergue} onCambiarEstado={onCambiarEstado} />
+                          <MenuEstado
+                            albergue={albergue}
+                            onCambiarEstado={onCambiarEstado}
+                          />
                         </>
                       )}
                     </div>
@@ -430,64 +399,88 @@ export function AlberguesLista({
           </table>
         </div>
 
-        {/* TARJETAS: celulares */}
-        <ul className="space-y-3 p-3 md:hidden" aria-label="Albergues registrados">
+        {/* Tarjetas móvil */}
+        <ul
+          className="space-y-3 p-3 md:hidden"
+          aria-label="Albergues registrados"
+        >
           {albergues.map((albergue) => (
             <li
               key={albergue.id}
-              className={`rounded-xl border p-3 ${
-                seleccionadoId === albergue.id ? "border-[#00C3D0] bg-[#F4FCFC]" : "border-[#E3EAEE] bg-white"
+              className={`border p-3 ${
+                seleccionadoId === albergue.id
+                  ? "border-[#008994] bg-[#F4FCFC]"
+                  : "border-[#DCE6EA] bg-white"
               }`}
             >
               <div className="flex items-center gap-3">
                 <IconoAlbergue />
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-[#172126]">{albergue.nombre}</p>
-                  <p className="text-[10px] text-[#829198]">{albergue.codigo}</p>
+                  <p className="truncate text-[13px] font-semibold text-[#164652]">
+                    {albergue.nombre}
+                  </p>
+                  <p className="text-[11px] text-[#718895]">{albergue.codigo}</p>
                 </div>
               </div>
 
               <dl className="mt-3 grid grid-cols-[96px_1fr] gap-x-2 gap-y-2 text-[12px]">
-                <dt className="text-[10px] uppercase tracking-wide text-[#829198]">Ubicación</dt>
-                <dd className="text-[#53636B]">{albergue.municipio}</dd>
-                <dt className="text-[10px] uppercase tracking-wide text-[#829198]">Población</dt>
-                <dd className="text-[#53636B]"><Ocupacion albergue={albergue} /></dd>
-                <dt className="text-[10px] uppercase tracking-wide text-[#829198]">Administrador</dt>
-                <dd className="text-[#53636B]">{albergue.administrador ?? "Sin asignar"}</dd>
-                <dt className="text-[10px] uppercase tracking-wide text-[#829198]">Riesgo</dt>
-                <dd><RiesgoBadge riesgo={albergue.riesgo} /></dd>
-                <dt className="text-[10px] uppercase tracking-wide text-[#829198]">Estado</dt>
-                <dd><EstadoBadge activo={albergue.activo} /></dd>
+                <dt className="text-[11px] text-[#718895]">Ubicación</dt>
+                <dd className="text-[#53636B]">
+                  {albergue.municipio}, {albergue.departamento}
+                </dd>
+                <dt className="text-[11px] text-[#718895]">Población</dt>
+                <dd className="text-[#53636B]">
+                  {albergue.poblacionActual === null
+                    ? "Sin dato"
+                    : albergue.poblacionActual}{" "}
+                  / {albergue.capacidadInstalada} personas
+                </dd>
+                <dt className="text-[11px] text-[#718895]">Riesgo</dt>
+                <dd>
+                  <RiesgoBadge riesgo={albergue.riesgo} />
+                </dd>
+                <dt className="text-[11px] text-[#718895]">Administrador</dt>
+                <dd className="text-[#53636B]">
+                  {albergue.administrador ?? "Sin asignar"}
+                </dd>
+                <dt className="text-[11px] text-[#718895]">Estado</dt>
+                <dd>
+                  <EstadoBadge activo={albergue.activo} />
+                </dd>
               </dl>
 
-              <div className={`mt-3 grid gap-2 ${puedeAdministrar ? "grid-cols-3" : "grid-cols-1"}`}>
+              <div
+                className={`mt-3 grid gap-2 ${
+                  puedeAdministrar && albergue.activo
+                    ? "grid-cols-3"
+                    : "grid-cols-1"
+                }`}
+              >
                 <button
                   type="button"
                   aria-label={`Consultar ${albergue.nombre}`}
                   onClick={() => onConsultar(albergue)}
-                  className="rounded-lg border border-[#E3EAEE] py-2 text-[12px] font-semibold text-[#172126]"
+                  className="border border-[#DCE6EA] py-2 text-[12px] font-semibold text-[#164652]"
                 >
                   Consultar
                 </button>
-                {puedeAdministrar && (
+                {puedeAdministrar && albergue.activo && (
                   <>
                     <button
                       type="button"
                       aria-label={`Editar ${albergue.nombre}`}
                       onClick={() => onEditar(albergue)}
-                      className="rounded-lg border border-[#E3EAEE] py-2 text-[12px] font-semibold text-[#172126]"
+                      className="border border-[#DCE6EA] py-2 text-[12px] font-semibold text-[#164652]"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
-                      aria-label={`${albergue.activo ? "Desactivar" : "Reactivar"} ${albergue.nombre}`}
+                      aria-label={`Desactivar ${albergue.nombre}`}
                       onClick={() => onCambiarEstado(albergue)}
-                      className={`rounded-lg border border-[#E3EAEE] py-2 text-[12px] font-semibold ${
-                        albergue.activo ? "text-[#CF343B]" : "text-[#008E99]"
-                      }`}
+                      className="border border-[#DCE6EA] py-2 text-[12px] font-semibold text-[#C53030]"
                     >
-                      {albergue.activo ? "Desactivar" : "Reactivar"}
+                      Desactivar
                     </button>
                   </>
                 )}
@@ -495,15 +488,6 @@ export function AlberguesLista({
             </li>
           ))}
         </ul>
-
-        <Paginacion
-          pagina={pagina}
-          totalPaginas={totalPaginas}
-          desde={desde}
-          hasta={hasta}
-          total={totalFiltrados}
-          onPaginaChange={onPaginaChange}
-        />
       </>
     );
   }
@@ -512,34 +496,41 @@ export function AlberguesLista({
     <section
       aria-labelledby="titulo-albergues"
       aria-busy={estadoCarga === "cargando"}
-      className="min-w-0 rounded-2xl bg-white shadow-sm ring-1 ring-[#E3EAEE]"
+      className="min-w-0 border-t-2 border-[#008994] bg-white shadow-xs"
     >
-      <div className="flex flex-col gap-3 p-4 sm:p-5 2xl:flex-row 2xl:items-center 2xl:justify-between">
+      <div className="flex flex-col gap-3 p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 id="titulo-albergues" className="text-lg font-bold leading-6 text-[#172126]">
+          <h2
+            id="titulo-albergues"
+            className="text-lg font-bold leading-6 text-[#164652]"
+          >
             Albergues registrados
           </h2>
-          <p className="text-[12px] text-[#829198]">
+          <p className="text-[12px] text-[#718895]">
             {totalRegistrados} centros · {totalActivos} activos
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(160px,auto)_minmax(160px,auto)]">
+        <div className="flex flex-wrap items-end gap-2">
           <label className="relative">
             <span className="sr-only">Buscar albergue</span>
             <Search
-              size={15}
+              size={14}
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#829198]"
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#718895]"
             />
             <input
               type="search"
+              maxLength={100}
               value={filtros.busqueda}
               onChange={(evento) =>
-                onFiltrosChange({ ...filtros, busqueda: evento.target.value })
+                onFiltrosChange({
+                  ...filtros,
+                  busqueda: evento.target.value,
+                })
               }
-              placeholder="Buscar albergue…"
-              className={`${CONTROL} w-full pl-9 sm:min-w-56`}
+              placeholder="Nombre, código, municipio o depto…"
+              className={`${CONTROL} pl-8 sm:w-56`}
             />
           </label>
 
@@ -548,9 +539,12 @@ export function AlberguesLista({
             <select
               value={filtros.estado}
               onChange={(evento) =>
-                onFiltrosChange({ ...filtros, estado: evento.target.value as FiltroEstado })
+                onFiltrosChange({
+                  ...filtros,
+                  estado: evento.target.value as FiltroEstado,
+                })
               }
-              className={`${CONTROL} w-full`}
+              className={CONTROL}
             >
               <option value="todos">Todos los estados</option>
               <option value="activos">Activos</option>
@@ -559,25 +553,56 @@ export function AlberguesLista({
           </label>
 
           <label>
-            <span className="sr-only">Filtrar por riesgo</span>
-            <select
-              value={filtros.riesgo}
-              onChange={(evento) =>
-                onFiltrosChange({ ...filtros, riesgo: evento.target.value as FiltroRiesgo })
+            <span className="sr-only">Filtrar desde fecha de creación</span>
+            <input
+              type="date"
+              aria-label="Filtrar desde fecha"
+              max={filtros.hasta || undefined}
+              value={filtros.desde}
+              onChange={(e) =>
+                onFiltrosChange({ ...filtros, desde: e.target.value })
               }
-              className={`${CONTROL} w-full`}
-            >
-              <option value="todos">Todos los riesgos</option>
-              <option value="bajo">Bajo</option>
-              <option value="medio">Medio</option>
-              <option value="alto">Alto</option>
-              <option value="critico">Crítico</option>
-            </select>
+              className={CONTROL}
+            />
           </label>
+
+          <label>
+            <span className="sr-only">Filtrar hasta fecha de creación</span>
+            <input
+              type="date"
+              aria-label="Filtrar hasta fecha"
+              min={filtros.desde || undefined}
+              value={filtros.hasta}
+              onChange={(e) =>
+                onFiltrosChange({ ...filtros, hasta: e.target.value })
+              }
+              className={CONTROL}
+            />
+          </label>
+
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={() => onFiltrosChange(FILTROS_INICIALES)}
+              className="inline-flex h-9 items-center gap-1 border border-[#DCE6EA] bg-white px-2.5 text-xs font-semibold text-[#164652] transition hover:bg-[#F8FAFB]"
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+              <span>Limpiar</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="border-t border-[#EEF2F4]">{contenido()}</div>
+
+      <ControlesPaginacion
+        pagina={pagina}
+        etiquetaItems="albergues"
+        cargando={estadoCarga === "cargando"}
+        onPageChange={onPaginaChange}
+        onPageSizeChange={onPageSizeChange}
+        ariaLabel="Paginación de albergues"
+      />
     </section>
   );
 }

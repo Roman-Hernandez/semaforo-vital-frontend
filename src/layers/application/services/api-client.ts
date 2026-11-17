@@ -1,9 +1,10 @@
 /**
  * Cliente HTTP compartido para consumir la API de Semáforo Vital.
- * Envía el token del inicio de sesión y traduce los errores a mensajes claros.
+ * Envía el token desde localStorage, limpia la sesión en 401 y traduce errores.
  */
 
-export const CLAVE_TOKEN_ACCESO = "access_token";
+import { cerrarSesion, leerToken } from "./sesion";
+export { CLAVE_TOKEN as CLAVE_TOKEN_ACCESO } from "./sesion";
 
 export type ErroresCampos = Readonly<Record<string, string>>;
 
@@ -23,13 +24,7 @@ export interface ClienteApi {
   solicitar<T>(ruta: string, init?: RequestInit): Promise<T>;
 }
 
-export function leerTokenAcceso(): string | null {
-  try {
-    return globalThis.sessionStorage?.getItem(CLAVE_TOKEN_ACCESO) ?? null;
-  } catch {
-    return null;
-  }
-}
+export const leerTokenAcceso = leerToken;
 
 export function mensajePorEstado(status: number): string {
   switch (status) {
@@ -68,7 +63,7 @@ function camposDesdeDetalle(detalle: unknown): Record<string, string> {
 }
 
 async function leerError(respuesta: Response): Promise<ApiError> {
-  let cuerpo: { detail?: unknown } = {};
+  let cuerpo: { detail?: unknown; errors?: { location: (string | number)[]; message: string }[] } = {};
 
   try {
     cuerpo = await respuesta.json();
@@ -84,7 +79,11 @@ async function leerError(respuesta: Response): Promise<ApiError> {
   return new ApiError(
     respuesta.status,
     mensaje,
-    camposDesdeDetalle(cuerpo.detail)
+    camposDesdeDetalle(
+      Array.isArray(cuerpo.errors)
+        ? cuerpo.errors.map((issue) => ({ loc: issue.location, msg: issue.message }))
+        : cuerpo.detail
+    )
   );
 }
 
@@ -106,6 +105,7 @@ export function crearClienteApi(
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(init.headers ?? {}),
           },
         });
       } catch {
@@ -113,6 +113,9 @@ export function crearClienteApi(
       }
 
       if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          cerrarSesion();
+        }
         throw await leerError(respuesta);
       }
 

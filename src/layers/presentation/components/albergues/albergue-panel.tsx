@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, type SyntheticEvent } from "react";
-import { CircleAlert, Info, LoaderCircle, MapPin, Tent } from "lucide-react";
+import { CircleAlert, Info, LoaderCircle, Pencil, X } from "lucide-react";
 import {
   albergueAFormulario,
-  calcularOcupacion,
   CAPACIDAD_MAXIMA,
   FORMULARIO_VACIO,
   validarAlbergue,
@@ -13,14 +12,23 @@ import {
   type CampoAlbergue,
   type ErroresAlbergue,
 } from "@/layers/domain/albergues/albergue";
-import { AlberguesError } from "@/layers/application/services/albergues-service";
+import {
+  AlberguesError,
+  type RegistrosAlbergueGlobal,
+} from "@/layers/application/services/albergues-service";
 import { EstadoBadge, RiesgoBadge } from "./insignias";
+import { SelectorCoordenadasMapa } from "@/components/shared/SelectorCoordenadasMapa";
+import type { ConsultaPaginada } from "@/layers/application/services/paginacion";
 
 export type ModoPanel = "consultar" | "editar" | "registrar";
 
 interface AlberguePanelProps {
   readonly modo: ModoPanel;
   readonly albergue: Albergue | null;
+  readonly registrosGlobales?: RegistrosAlbergueGlobal | null;
+  readonly cargandoRegistros?: boolean;
+  readonly consultaRegistros?: ConsultaPaginada;
+  readonly onConsultaRegistrosChange?: (consulta: ConsultaPaginada) => void;
   readonly puedeAdministrar: boolean;
   readonly confirmandoEstado: boolean;
   readonly cambiandoEstado: boolean;
@@ -43,122 +51,184 @@ function formatearFecha(fecha: string): string {
   return `${dia} ${meses[mes - 1]} ${anio}`;
 }
 
-/* ----------------------------- Pestañas ----------------------------- */
-
-function Pestanas({
-  modo,
-  hayAlbergue,
+function DetalleAlbergue({
+  albergue,
+  registros,
+  cargandoRegistros,
+  consultaRegistros,
+  onConsultaRegistrosChange,
   puedeAdministrar,
-  onModoChange,
+  onEditar,
+  onCerrar,
 }: {
-  readonly modo: ModoPanel;
-  readonly hayAlbergue: boolean;
+  readonly albergue: Albergue;
+  readonly registros?: RegistrosAlbergueGlobal | null;
+  readonly cargandoRegistros?: boolean;
+  readonly consultaRegistros?: ConsultaPaginada;
+  readonly onConsultaRegistrosChange?: (consulta: ConsultaPaginada) => void;
   readonly puedeAdministrar: boolean;
-  readonly onModoChange: (modo: ModoPanel) => void;
+  readonly onEditar: () => void;
+  readonly onCerrar: () => void;
 }) {
-  const opciones: { modo: ModoPanel; etiqueta: string; deshabilitada: boolean }[] = [
-    { modo: "consultar", etiqueta: "Consultar", deshabilitada: !hayAlbergue },
-    ...(puedeAdministrar
-      ? [
-          { modo: "editar" as const, etiqueta: "Editar", deshabilitada: !hayAlbergue },
-          { modo: "registrar" as const, etiqueta: "Registrar", deshabilitada: false },
-        ]
-      : []),
-  ];
+  const primeraCondicion = registros?.condiciones.items[0];
+  const primeraEnfermedad = registros?.enfermedades.items[0];
+  const primeraIntervencion = registros?.intervenciones.items[0];
 
   return (
-    <div role="tablist" aria-label="Acciones del albergue" className="grid auto-cols-fr grid-flow-col gap-2">
-      {opciones.map((opcion) => (
-        <button
-          key={opcion.modo}
-          type="button"
-          role="tab"
-          aria-selected={modo === opcion.modo}
-          disabled={opcion.deshabilitada}
-          onClick={() => onModoChange(opcion.modo)}
-          className={`rounded-lg border py-2 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            modo === opcion.modo
-              ? "border-[#00C3D0] bg-[#E6F9FA] text-[#008E99]"
-              : "border-[#E3EAEE] bg-white text-[#53636B] hover:bg-[#F8FAFB]"
-          }`}
-        >
-          {opcion.etiqueta}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ----------------------------- Consultar ---------------------------- */
-
-function Dato({ etiqueta, children }: { readonly etiqueta: string; readonly children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg bg-[#F8FAFB] px-3 py-2.5">
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-[#829198]">{etiqueta}</dt>
-      <dd className="mt-1 text-[13px] text-[#172126]">{children}</dd>
-    </div>
-  );
-}
-
-function DetalleAlbergue({ albergue }: { readonly albergue: Albergue }) {
-  const ocupacion = calcularOcupacion(albergue);
-
-  return (
-    <div>
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E6F9FA] text-[#008E99]">
-          <Tent size={20} aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold leading-6 text-[#172126]">{albergue.nombre}</h2>
-          <p className="text-[12px] text-[#829198]">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EEF2F4] pb-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-[#164652]">{albergue.nombre}</h2>
+            <EstadoBadge activo={albergue.activo} />
+          </div>
+          <p className="mt-0.5 text-xs text-[#718895]">
             {albergue.codigo} · creado el {formatearFecha(albergue.creadoEn)}
           </p>
         </div>
+
+        <div className="flex items-center gap-2">
+          {puedeAdministrar && albergue.activo && (
+            <button
+              type="button"
+              onClick={onEditar}
+              className="inline-flex items-center gap-1.5 border border-[#DCE6EA] bg-white px-3 py-1.5 text-xs font-semibold text-[#164652] transition hover:bg-[#F4F8FA]"
+            >
+              <Pencil size={13} aria-hidden="true" />
+              <span>Editar</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar panel"
+            className="p-1.5 text-[#53636B] transition hover:bg-[#F4F8FA]"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <EstadoBadge activo={albergue.activo} />
-        <RiesgoBadge riesgo={albergue.riesgo} />
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <dl className="divide-y divide-[#EEF2F4] text-xs">
+          <div className="flex justify-between gap-3 py-2.5">
+            <dt className="text-[#53636B]">Ubicación</dt>
+            <dd className="text-right font-medium text-[#164652]">
+              {albergue.municipio}, {albergue.departamento}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2.5">
+            <dt className="text-[#53636B]">Dirección</dt>
+            <dd className="text-right font-medium text-[#164652]">{albergue.direccion}</dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2.5">
+            <dt className="text-[#53636B]">Población / Capacidad</dt>
+            <dd className="text-right font-medium text-[#164652]">
+              {albergue.poblacionActual === null
+                ? "Sin dato"
+                : `${albergue.poblacionActual} personas`}{" "}
+              / {albergue.capacidadInstalada} personas
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2.5">
+            <dt className="text-[#53636B]">Nivel de riesgo</dt>
+            <dd className="text-right font-medium text-[#164652]">
+              <RiesgoBadge riesgo={albergue.riesgo} />
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2.5">
+            <dt className="text-[#53636B]">Administrador</dt>
+            <dd className="text-right font-medium text-[#164652]">
+              {albergue.administrador ?? "Sin asignar"}
+            </dd>
+          </div>
+        </dl>
 
-      <dl className="mt-4 grid grid-cols-2 gap-2">
-        <div className="col-span-2">
-          <Dato etiqueta="Ubicación">
-            {albergue.municipio}, {albergue.departamento}
-          </Dato>
+        {/* Registros sanitarios reportados */}
+        <div className="space-y-2.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-bold text-[#164652]">
+              Registros reportados en este albergue
+            </h3>
+            {onConsultaRegistrosChange && (
+              <input
+                type="search"
+                aria-label="Filtrar registros del albergue"
+                value={consultaRegistros?.q ?? ""}
+                onChange={(e) =>
+                  onConsultaRegistrosChange({
+                    ...consultaRegistros,
+                    page: 1,
+                    q: e.target.value,
+                  })
+                }
+                placeholder="Filtrar registros…"
+                className="h-7 border border-[#DCE6EA] bg-white px-2 text-xs text-[#164652] outline-none focus:border-[#008994]"
+              />
+            )}
+          </div>
+
+          {cargandoRegistros ? (
+            <div className="space-y-2 pt-2">
+              <span className="sr-only">Cargando registros del albergue…</span>
+              <div className="h-4 w-3/4 animate-pulse bg-[#EAF1F3]" />
+              <div className="h-4 w-2/3 animate-pulse bg-[#EAF1F3]" />
+              <div className="h-4 w-1/2 animate-pulse bg-[#EAF1F3]" />
+            </div>
+          ) : registros ? (
+            <dl className="divide-y divide-[#EEF2F4] border-t border-[#EEF2F4]">
+              <div className="py-2.5">
+                <dt className="font-semibold text-[#164652]">
+                  Condiciones sanitarias ({registros.condiciones.total})
+                </dt>
+                <dd className="mt-0.5 text-[#53636B]">
+                  {primeraCondicion
+                    ? `${primeraCondicion.fecha}: Agua ${
+                        primeraCondicion.aguaPotableDisponible
+                          ? "disponible"
+                          : "no disponible"
+                      } · ${primeraCondicion.banosDisponibles} baños · Higiene: ${
+                        primeraCondicion.estadoHigiene
+                      }`
+                    : "Sin registros sanitarios."}
+                </dd>
+              </div>
+
+              <div className="py-2.5">
+                <dt className="font-semibold text-[#164652]">
+                  Casos de enfermedades ({registros.enfermedades.total})
+                </dt>
+                <dd className="mt-0.5 text-[#53636B]">
+                  {primeraEnfermedad
+                    ? `${primeraEnfermedad.fecha}: ${primeraEnfermedad.enfermedad} (${primeraEnfermedad.cantidadCasosActivos} casos activos${
+                        primeraEnfermedad.cantidadRecuperados !== null
+                          ? ` · ${primeraEnfermedad.cantidadRecuperados} recuperados`
+                          : ""
+                      })`
+                    : "Sin casos registrados."}
+                </dd>
+              </div>
+
+              <div className="py-2.5">
+                <dt className="font-semibold text-[#164652]">
+                  Intervenciones ({registros.intervenciones.total})
+                </dt>
+                <dd className="mt-0.5 text-[#53636B]">
+                  {primeraIntervencion
+                    ? `${primeraIntervencion.tipo}: ${primeraIntervencion.descripcion}`
+                    : "Sin intervenciones registradas."}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
         </div>
-        <div className="col-span-2">
-          <Dato etiqueta="Dirección">{albergue.direccion}</Dato>
-        </div>
-        <Dato etiqueta="Capacidad instalada">{albergue.capacidadInstalada} personas</Dato>
-        <Dato etiqueta="Población actual">
-          {albergue.poblacionActual === null
-            ? "Sin datos"
-            : `${albergue.poblacionActual} (${ocupacion}%)`}
-        </Dato>
-        <div className="col-span-2">
-          <Dato etiqueta="Administrador responsable">
-            {albergue.administrador ?? "Sin asignar"}
-          </Dato>
-        </div>
-        <div className="col-span-2">
-          <Dato etiqueta="Coordenadas">
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin size={13} aria-hidden="true" className="text-[#008E99]" />
-              {albergue.latitud}, {albergue.longitud}
-            </span>
-          </Dato>
-        </div>
-      </dl>
+      </div>
     </div>
   );
 }
 
-/* ---------------------------- Formulario ---------------------------- */
-
 const CONTROL =
-  "h-11 w-full rounded-lg border bg-white px-3 text-[13px] text-[#172126] outline-none transition placeholder:text-[#A5B2B8] focus:ring-2 disabled:bg-[#F8FAFB] disabled:text-[#829198]";
+  "h-10 w-full rounded-lg border bg-white px-3 text-[13px] text-[#164652] outline-none transition placeholder:text-[#A5B2B8] focus:ring-2 disabled:bg-[#F8FAFB] disabled:text-[#718895]";
 
 function Campo({
   id,
@@ -177,27 +247,26 @@ function Campo({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-[12px] font-semibold text-[#172126]">
+      <label htmlFor={id} className="mb-1 block text-xs font-semibold text-[#164652]">
         {etiqueta}
         {obligatorio && (
-          <span aria-hidden="true" className="text-[#CF343B]"> *</span>
+          <span aria-hidden="true" className="text-[#C53030]"> *</span>
         )}
       </label>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="mt-1 flex items-start gap-1 text-[11px] text-[#CF343B]">
+        <p id={`${id}-error`} className="mt-1 flex items-start gap-1 text-[11px] text-[#C53030]">
           <CircleAlert size={12} aria-hidden="true" className="mt-px shrink-0" />
           {error}
         </p>
       ) : (
-        ayuda && <p id={`${id}-ayuda`} className="mt-1 text-[11px] text-[#829198]">{ayuda}</p>
+        ayuda && <p id={`${id}-ayuda`} className="mt-1 text-[11px] text-[#718895]">{ayuda}</p>
       )}
     </div>
   );
 }
 
 const CAMPOS_ORDEN: CampoAlbergue[] = [
-  "codigo",
   "nombre",
   "departamento",
   "municipio",
@@ -240,6 +309,14 @@ function FormularioAlbergue({
     }
   }
 
+  function cambiarCoordenadas(nuevaLat: string, nuevaLng: string) {
+    const siguientes = { ...valores, latitud: nuevaLat, longitud: nuevaLng };
+    setValores(siguientes);
+    if (intentado) {
+      setErrores(validarAlbergue(siguientes));
+    }
+  }
+
   function propiedades(campo: CampoAlbergue) {
     const error = errores[campo];
     const id = `${prefijo}-${campo}`;
@@ -251,8 +328,8 @@ function FormularioAlbergue({
       "aria-describedby": error ? `${id}-error` : undefined,
       className: `${CONTROL} ${
         error
-          ? "border-[#CF343B] focus:ring-[#CF343B]/15"
-          : "border-[#E3EAEE] focus:border-[#00C3D0] focus:ring-[#00C3D0]/20"
+          ? "border-[#C53030] focus:ring-[#C53030]/15"
+          : "border-[#DCE6EA] focus:border-[#008994] focus:ring-[#008994]/15"
       }`,
     };
   }
@@ -270,7 +347,11 @@ function FormularioAlbergue({
     const primero = CAMPOS_ORDEN.find((campo) => encontrados[campo]);
 
     if (primero) {
-      document.getElementById(`${prefijo}-${primero}`)?.focus();
+      const idCampo =
+        primero === "latitud" || primero === "longitud"
+          ? `selector-${primero}`
+          : `${prefijo}-${primero}`;
+      document.getElementById(idCampo)?.focus();
       return;
     }
 
@@ -292,181 +373,145 @@ function FormularioAlbergue({
 
   return (
     <form onSubmit={enviar} noValidate aria-busy={guardando} className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold leading-6 text-[#172126]">
-          {esEdicion ? "Editar albergue" : "Registrar albergue"}
-        </h2>
-        <p className="text-[12px] text-[#829198]">
-          {esEdicion && albergue
-            ? `${albergue.codigo} · creado el ${formatearFecha(albergue.creadoEn)}`
-            : "Completa los datos para crear un nuevo centro"}
-        </p>
+      <div className="flex items-start justify-between gap-3 border-b border-[#EEF2F4] pb-3">
+        <div>
+          <h2 className="text-base font-bold text-[#164652]">
+            {esEdicion ? "Editar albergue" : "Registrar albergue"}
+          </h2>
+          <p className="text-xs text-[#718895]">
+            {esEdicion && albergue
+              ? `${albergue.codigo} · creado el ${formatearFecha(albergue.creadoEn)}`
+              : "Completa los datos y selecciona el punto en el mapa para crear el centro"}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCancelar}
+          aria-label="Cerrar formulario"
+          className="rounded-lg p-1.5 text-[#53636B] transition hover:bg-[#F4F8FA]"
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
       </div>
 
       {intentado && Object.keys(errores).length > 0 && !errorServidor && (
-        <p role="alert" className="rounded-lg bg-[#FDECEE] px-3 py-2 text-[12px] text-[#CF343B]">
+        <p role="alert" className="text-xs font-medium text-[#C53030]">
           Revisa los campos marcados antes de continuar.
         </p>
       )}
 
       {errorServidor && (
-        <p role="alert" className="flex items-start gap-2 rounded-lg bg-[#FDECEE] px-3 py-2 text-[12px] text-[#CF343B]">
+        <p role="alert" className="flex items-start gap-1.5 text-xs font-medium text-[#C53030]">
           <CircleAlert size={14} aria-hidden="true" className="mt-px shrink-0" />
           {errorServidor}
         </p>
       )}
 
-      <fieldset disabled={guardando} className="space-y-4">
+      <fieldset disabled={guardando} className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <legend className="sr-only">Datos del albergue</legend>
 
-        <Campo
-          id={`${prefijo}-codigo`}
-          etiqueta="Código del albergue"
-          obligatorio
-          error={errores.codigo}
-          ayuda={esEdicion ? undefined : "Identificador único. Ej: ALB-PER-010"}
-        >
-          <input
-            {...propiedades("codigo")}
-            value={valores.codigo}
-            onChange={(e) => cambiar("codigo", e.target.value.toUpperCase())}
-            placeholder="Ej. ALB-PER-010"
-            maxLength={20}
-            autoComplete="off"
-          />
-        </Campo>
+        <div className="space-y-3.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo id={`${prefijo}-capacidadInstalada`} etiqueta="Capacidad" obligatorio error={errores.capacidadInstalada}>
+              <input
+                {...propiedades("capacidadInstalada")}
+                value={valores.capacidadInstalada}
+                onChange={(e) => cambiar("capacidadInstalada", e.target.value)}
+                placeholder="Ej. 450"
+                inputMode="numeric"
+                type="number"
+                min={1}
+                max={CAPACIDAD_MAXIMA}
+              />
+            </Campo>
+          </div>
 
-        <Campo id={`${prefijo}-nombre`} etiqueta="Nombre del albergue" obligatorio error={errores.nombre}>
-          <input
-            {...propiedades("nombre")}
-            value={valores.nombre}
-            onChange={(e) => cambiar("nombre", e.target.value)}
-            placeholder="Ej. Albergue Municipal Norte"
-            maxLength={120}
-          />
-        </Campo>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Campo id={`${prefijo}-departamento`} etiqueta="Departamento" obligatorio error={errores.departamento}>
+          <Campo id={`${prefijo}-nombre`} etiqueta="Nombre del albergue" obligatorio error={errores.nombre}>
             <input
-              {...propiedades("departamento")}
-              value={valores.departamento}
-              onChange={(e) => cambiar("departamento", e.target.value)}
-              placeholder="Ej. Risaralda"
-              maxLength={60}
+              {...propiedades("nombre")}
+              value={valores.nombre}
+              onChange={(e) => cambiar("nombre", e.target.value)}
+              placeholder="Ej. Albergue Municipal Norte"
+              maxLength={120}
             />
           </Campo>
-          <Campo id={`${prefijo}-municipio`} etiqueta="Municipio" obligatorio error={errores.municipio}>
-            <input
-              {...propiedades("municipio")}
-              value={valores.municipio}
-              onChange={(e) => cambiar("municipio", e.target.value)}
-              placeholder="Ej. Pereira"
-              maxLength={60}
-            />
-          </Campo>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Campo id={`${prefijo}-capacidadInstalada`} etiqueta="Capacidad" obligatorio error={errores.capacidadInstalada}>
-            <input
-              {...propiedades("capacidadInstalada")}
-              value={valores.capacidadInstalada}
-              onChange={(e) => cambiar("capacidadInstalada", e.target.value)}
-              placeholder="Ej. 450"
-              inputMode="numeric"
-              type="number"
-              min={1}
-              max={CAPACIDAD_MAXIMA}
-            />
-          </Campo>
-          <Campo id={`${prefijo}-activo`} etiqueta="Estado" ayuda={esEdicion ? "Cámbialo con Desactivar/Reactivar" : undefined}>
-            <select
-              {...propiedades("activo")}
-              value={valores.activo ? "activo" : "inactivo"}
-              onChange={(e) => cambiar("activo", e.target.value === "activo")}
-              disabled={esEdicion}
-            >
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
-            </select>
-          </Campo>
-        </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo id={`${prefijo}-departamento`} etiqueta="Departamento" obligatorio error={errores.departamento}>
+              <input
+                {...propiedades("departamento")}
+                value={valores.departamento}
+                onChange={(e) => cambiar("departamento", e.target.value)}
+                placeholder="Ej. Risaralda"
+                maxLength={60}
+              />
+            </Campo>
+            <Campo id={`${prefijo}-municipio`} etiqueta="Municipio" obligatorio error={errores.municipio}>
+              <input
+                {...propiedades("municipio")}
+                value={valores.municipio}
+                onChange={(e) => cambiar("municipio", e.target.value)}
+                placeholder="Ej. Pereira"
+                maxLength={60}
+              />
+            </Campo>
+          </div>
 
-        <Campo id={`${prefijo}-direccion`} etiqueta="Dirección institucional" obligatorio error={errores.direccion}>
-          <input
-            {...propiedades("direccion")}
-            value={valores.direccion}
-            onChange={(e) => cambiar("direccion", e.target.value)}
-            placeholder="Ej. Cra. 7 # 19-45, Centro"
-            maxLength={160}
-          />
-        </Campo>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Campo id={`${prefijo}-latitud`} etiqueta="Latitud" obligatorio error={errores.latitud}>
+          <Campo id={`${prefijo}-direccion`} etiqueta="Dirección institucional" obligatorio error={errores.direccion}>
             <input
-              {...propiedades("latitud")}
-              value={valores.latitud}
-              onChange={(e) => cambiar("latitud", e.target.value)}
-              placeholder="Ej. 4.8143"
-              inputMode="decimal"
-            />
-          </Campo>
-          <Campo id={`${prefijo}-longitud`} etiqueta="Longitud" obligatorio error={errores.longitud}>
-            <input
-              {...propiedades("longitud")}
-              value={valores.longitud}
-              onChange={(e) => cambiar("longitud", e.target.value)}
-              placeholder="Ej. -75.6946"
-              inputMode="decimal"
+              {...propiedades("direccion")}
+              value={valores.direccion}
+              onChange={(e) => cambiar("direccion", e.target.value)}
+              placeholder="Ej. Cra. 7 # 19-45, Centro"
+              maxLength={160}
             />
           </Campo>
         </div>
 
-        <div className="rounded-lg bg-[#F8FAFB] px-3 py-2.5">
-          <p className="text-[12px] font-semibold text-[#172126]">Administrador responsable</p>
-          <p className="mt-1 text-[12px] text-[#53636B]">
-            {esEdicion && albergue?.administrador
-              ? albergue.administrador
-              : "Sin asignar"}
-            <span className="block text-[11px] text-[#829198]">
-              La asignación se gestiona desde el módulo Asignaciones.
-            </span>
-          </p>
+        {/* Selector visual en el mapa */}
+        <div>
+          <SelectorCoordenadasMapa
+            latitud={valores.latitud}
+            longitud={valores.longitud}
+            onChange={cambiarCoordenadas}
+            errorLatitud={errores.latitud}
+            errorLongitud={errores.longitud}
+            disabled={guardando}
+          />
         </div>
       </fieldset>
 
-      <p className="flex items-center gap-2 rounded-lg bg-[#F8FAFB] px-3 py-2.5 text-[11px] text-[#53636B]">
-        <Info size={14} aria-hidden="true" className="shrink-0 text-[#008E99]" />
-        {esEdicion
-          ? "La modificación quedará registrada en la bitácora global."
-          : "La creación quedará registrada en la bitácora global."}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF2F4] pt-4">
+        <p className="flex items-center gap-1.5 text-[11px] text-[#718895]">
+          <Info size={13} aria-hidden="true" className="shrink-0 text-[#008994]" />
+          {esEdicion
+            ? "La modificación quedará registrada en el sistema."
+            : "La creación quedará registrada en el sistema."}
+        </p>
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onCancelar}
-          disabled={guardando}
-          className="h-11 rounded-lg border border-[#E3EAEE] bg-white text-[13px] font-semibold text-[#172126] transition hover:bg-[#F8FAFB] disabled:opacity-60"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={guardando}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#00C3D0] text-[13px] font-semibold text-white transition hover:bg-[#00AEB9] disabled:cursor-wait disabled:opacity-80"
-        >
-          {guardando && <LoaderCircle size={15} aria-hidden="true" className="animate-spin" />}
-          {textoEnviar}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancelar}
+            disabled={guardando}
+            className="h-10 rounded-lg border border-[#DCE6EA] bg-white px-4 text-xs font-semibold text-[#164652] transition hover:bg-[#F8FAFB] disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={guardando}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#008994] px-5 text-xs font-semibold text-white transition hover:bg-[#00747E] disabled:cursor-wait disabled:opacity-80"
+          >
+            {guardando && <LoaderCircle size={14} aria-hidden="true" className="animate-spin" />}
+            {textoEnviar}
+          </button>
+        </div>
       </div>
     </form>
   );
 }
-
-/* --------------------------- Cambiar estado -------------------------- */
 
 function ZonaEstado({
   albergue,
@@ -487,48 +532,44 @@ function ZonaEstado({
 
   if (!confirmando) {
     return (
-      <button
-        type="button"
-        onClick={() => onConfirmandoChange(true)}
-        className={`mt-4 h-10 w-full rounded-lg border text-[13px] font-semibold transition ${
-          desactivar
-            ? "border-[#F5C9CB] text-[#CF343B] hover:bg-[#FDEEEE]"
-            : "border-[#BDEEF1] text-[#008E99] hover:bg-[#E6F9FA]"
-        }`}
-      >
-        {desactivar ? "Desactivar albergue" : "Reactivar albergue"}
-      </button>
+      <div className="mt-4 flex justify-end border-t border-[#EEF2F4] pt-4">
+        <button
+          type="button"
+          onClick={() => onConfirmandoChange(true)}
+          className="h-9 rounded-lg border border-[#F5C9CB] px-4 text-xs font-semibold text-[#C53030] transition hover:bg-[#FDECEC]"
+        >
+          {desactivar ? "Desactivar albergue" : "Reactivar albergue"}
+        </button>
+      </div>
     );
   }
 
   return (
     <section
       aria-labelledby="titulo-confirmacion"
-      className={`mt-4 rounded-lg border-l-4 p-4 ${
-        desactivar ? "border-[#E65353] bg-[#FDEEEE]" : "border-[#00C3D0] bg-[#E6F9FA]"
-      }`}
+      className="mt-4 border-t border-[#EEF2F4] pt-4"
     >
-      <h3 id="titulo-confirmacion" className="text-[13px] font-bold text-[#172126]">
+      <h3 id="titulo-confirmacion" className="text-xs font-bold text-[#C53030]">
         {desactivar ? "Confirmar desactivación" : "Confirmar reactivación"}
       </h3>
-      <p className="mt-1 text-[11px] leading-4 text-[#53636B]">
+      <p className="mt-1 text-xs leading-4 text-[#53636B]">
         {desactivar
           ? `Se suspenderá el acceso operativo de ${albergue.nombre}. Los datos históricos permanecerán disponibles.`
-          : `${albergue.nombre} volverá a estar disponible para su operación y seguimiento.`}
+          : `${albergue.nombre} volverá a estar disponible para su operación.`}
       </p>
 
       {error && (
-        <p role="alert" className="mt-2 text-[11px] font-semibold text-[#CF343B]">
+        <p role="alert" className="mt-2 text-xs font-semibold text-[#C53030]">
           {error}
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex gap-2">
         <button
           type="button"
           onClick={() => onConfirmandoChange(false)}
           disabled={cambiando}
-          className="h-10 rounded-lg border border-[#E3EAEE] bg-white px-4 text-[13px] font-semibold text-[#172126] disabled:opacity-60"
+          className="h-9 rounded-lg border border-[#DCE6EA] bg-white px-4 text-xs font-semibold text-[#164652] disabled:opacity-60"
         >
           {desactivar ? "Mantener activo" : "Cancelar"}
         </button>
@@ -536,11 +577,9 @@ function ZonaEstado({
           type="button"
           onClick={() => onCambiarEstado(albergue)}
           disabled={cambiando}
-          className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold text-white disabled:cursor-wait disabled:opacity-80 ${
-            desactivar ? "bg-[#E65353] hover:bg-[#D94848]" : "bg-[#00C3D0] hover:bg-[#00AEB9]"
-          }`}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#C53030] px-4 text-xs font-semibold text-white hover:bg-[#A8252B] disabled:opacity-80"
         >
-          {cambiando && <LoaderCircle size={15} aria-hidden="true" className="animate-spin" />}
+          {cambiando && <LoaderCircle size={14} aria-hidden="true" className="animate-spin" />}
           {desactivar ? "Desactivar" : "Reactivar"}
         </button>
       </div>
@@ -548,11 +587,13 @@ function ZonaEstado({
   );
 }
 
-/* ------------------------------- Panel ------------------------------ */
-
 export function AlberguePanel({
   modo,
   albergue,
+  registrosGlobales,
+  cargandoRegistros,
+  consultaRegistros,
+  onConsultaRegistrosChange,
   puedeAdministrar,
   confirmandoEstado,
   cambiandoEstado,
@@ -564,10 +605,19 @@ export function AlberguePanel({
   onCambiarEstado,
 }: AlberguePanelProps) {
   const esFormulario = modo === "editar" || modo === "registrar";
+  const mostrarPanel = modo === "registrar" || albergue !== null;
 
-  function contenido() {
-    if (modo === "registrar" || (modo === "editar" && albergue)) {
-      return (
+  if (!mostrarPanel) {
+    return null;
+  }
+
+  return (
+    <aside
+      id="panel-albergue"
+      aria-label="Detalle y formulario del albergue"
+      className="border-t-2 border-[#008994] bg-white p-6 shadow-xs"
+    >
+      {modo === "registrar" || (modo === "editar" && albergue) ? (
         <FormularioAlbergue
           key={`${modo}-${albergue?.id ?? "nuevo"}`}
           albergue={albergue}
@@ -575,43 +625,20 @@ export function AlberguePanel({
           onGuardar={onGuardar}
           onCancelar={onCancelar}
         />
-      );
-    }
+      ) : albergue ? (
+        <DetalleAlbergue
+          albergue={albergue}
+          registros={registrosGlobales}
+          cargandoRegistros={cargandoRegistros}
+          consultaRegistros={consultaRegistros}
+          onConsultaRegistrosChange={onConsultaRegistrosChange}
+          puedeAdministrar={puedeAdministrar}
+          onEditar={() => onModoChange("editar")}
+          onCerrar={onCancelar}
+        />
+      ) : null}
 
-    if (albergue) {
-      return <DetalleAlbergue albergue={albergue} />;
-    }
-
-    return (
-      <div className="flex flex-col items-center py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F9FA] text-[#008E99]">
-          <Tent size={22} aria-hidden="true" />
-        </span>
-        <p className="mt-3 text-sm font-semibold text-[#172126]">Selecciona un albergue</p>
-        <p className="mt-1 text-[12px] text-[#53636B]">
-          Elige un albergue del listado para consultar su información
-          {puedeAdministrar ? " o regístralo con la pestaña Registrar." : "."}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <aside
-      id="panel-albergue"
-      aria-label="Detalle y formulario del albergue"
-      className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-[#E3EAEE] sm:p-5 lg:sticky lg:top-6"
-    >
-      <Pestanas
-        modo={modo}
-        hayAlbergue={albergue !== null}
-        puedeAdministrar={puedeAdministrar}
-        onModoChange={onModoChange}
-      />
-
-      <div className="mt-5">{contenido()}</div>
-
-      {puedeAdministrar && albergue && (modo === "editar" || !esFormulario) && (
+      {puedeAdministrar && albergue?.activo && (modo === "editar" || !esFormulario) && (
         <ZonaEstado
           albergue={albergue}
           confirmando={confirmandoEstado}

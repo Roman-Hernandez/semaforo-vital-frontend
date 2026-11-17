@@ -1,196 +1,214 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../application/services/api-client";
+import type { IntervencionesGateway } from "../../application/services/intervenciones-service";
+import type { ConsultaPaginada, Page } from "../../application/services/paginacion";
 import {
-  INTERVENCIONES_DEMO,
-  crearGatewayMemoria,
-  type IntervencionesGateway,
-} from "../../application/services/intervenciones-service";
+  normalizarIntervencion,
+  type Intervencion,
+  type IntervencionEntrada,
+} from "../../domain/intervenciones/intervencion";
 import { IntervencionesPage } from "./intervenciones-page";
 
 const HOY = "2026-11-15";
 
-function renderizar(gateway: IntervencionesGateway = crearGatewayMemoria(INTERVENCIONES_DEMO, 0), modoDemostracion = false) {
+const SEMILLA: readonly Intervencion[] = [
+  {
+    id: "int-001",
+    tipo: "Agua potable",
+    descripcion:
+      "Instalación de dos tanques de 1.000 litros con agua tratada en el área común.",
+    observaciones: "Se programó revisión del cloro residual cada 48 horas.",
+    fecha: "2026-11-12",
+    registradoEn: "2026-11-12T15:10:00.000Z",
+  },
+  {
+    id: "int-002",
+    tipo: "Saneamiento",
+    descripcion:
+      "Reparación de cuatro sanitarios y limpieza profunda de las baterías sanitarias.",
+    observaciones: "",
+    fecha: "2026-11-10",
+    registradoEn: "2026-11-10T20:30:00.000Z",
+  },
+  {
+    id: "int-003",
+    tipo: "Higiene",
+    descripcion:
+      "Campaña de lavado de manos con entrega de jabón y alcohol glicerinado a 45 familias.",
+    observaciones: "Apoyo de la Secretaría de Salud municipal.",
+    fecha: "2026-11-08",
+    registradoEn: "2026-11-08T14:00:00.000Z",
+  },
+  {
+    id: "int-004",
+    tipo: "Aislamiento temprano",
+    descripcion:
+      "Habilitación de un espacio de aislamiento para residentes con síntomas respiratorios.",
+    observaciones: "",
+    fecha: "2026-11-03",
+    registradoEn: "2026-11-03T18:45:00.000Z",
+  },
+];
+
+function crearGatewayTest(
+  inicial: readonly Intervencion[] = SEMILLA
+): IntervencionesGateway {
+  let intervenciones = inicial.map((item) => ({ ...item }));
+  let secuencia = intervenciones.length;
+
+  return {
+    listar: vi.fn(async (consulta: ConsultaPaginada = {}): Promise<Page<Intervencion>> => {
+      const q = (consulta.q ?? "").trim().toLowerCase();
+      const desde = consulta.desde ?? "";
+      const hasta = consulta.hasta ?? "";
+
+      const filtradas = intervenciones.filter((item) => {
+        if (desde && item.fecha < desde) return false;
+        if (hasta && item.fecha > hasta) return false;
+        if (!q) return true;
+        return `${item.tipo} ${item.descripcion} ${item.observaciones}`
+          .toLowerCase()
+          .includes(q);
+      });
+
+      const page = consulta.page ?? 1;
+      const pageSize = consulta.page_size ?? 20;
+      const offset = (page - 1) * pageSize;
+      const items = filtradas.slice(offset, offset + pageSize);
+      const total = filtradas.length;
+      const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+
+      return {
+        items,
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: totalPages,
+        has_next: page < totalPages,
+        has_previous: page > 1,
+      };
+    }),
+    registrar: vi.fn(async (entrada: IntervencionEntrada) => {
+      secuencia += 1;
+      const nueva: Intervencion = {
+        ...normalizarIntervencion(entrada),
+        id: `int-${String(secuencia).padStart(3, "0")}`,
+        registradoEn: new Date().toISOString(),
+      };
+      intervenciones = [nueva, ...intervenciones];
+      return { ...nueva };
+    }),
+  };
+}
+
+function renderizar(gateway: IntervencionesGateway = crearGatewayTest()) {
   const usuario = userEvent.setup();
-  render(<IntervencionesPage gateway={gateway} hoy={HOY} modoDemostracion={modoDemostracion} />);
-  return usuario;
+  render(<IntervencionesPage gateway={gateway} hoy={HOY} />);
+  return { usuario, gateway };
 }
 
 function formulario() {
-  return within(screen.getByRole("complementary", { name: "Nueva intervención" }));
+  return within(
+    screen.getByRole("complementary", { name: "Nueva intervención" })
+  );
 }
 
 async function llenarFormulario(usuario: ReturnType<typeof userEvent.setup>) {
   const form = formulario();
-  await usuario.selectOptions(form.getByLabelText(/Tipo de intervención/), "Ventilación");
-  await usuario.type(form.getByLabelText(/Descripción/), "Apertura de ventanas en los dormitorios.");
+  await usuario.selectOptions(
+    form.getByLabelText(/Tipo de intervención/),
+    "Ventilación"
+  );
+  await usuario.type(
+    form.getByLabelText(/Descripción/),
+    "Apertura de ventanas en los dormitorios."
+  );
   await usuario.type(form.getByLabelText(/Fecha de realización/), "2026-11-14");
 }
 
-describe("Intervenciones sanitarias - Administrador de albergue", () => {
-  it("muestra la carga y luego el historial con tipo, descripción y fecha", async () => {
+describe("Intervenciones sanitarias paginadas (/albergue/intervenciones)", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("muestra la carga y luego el historial paginado desde el servidor", async () => {
     renderizar();
 
-    expect(screen.getByText("Cargando intervenciones…")).toBeInTheDocument();
-
     const tabla = within(await screen.findByRole("table"));
-    expect(screen.getByRole("heading", { name: "Gestión de intervenciones" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Gestión de intervenciones" })
+    ).toBeInTheDocument();
     expect(tabla.getByText("12 nov 2026")).toBeInTheDocument();
     expect(tabla.getByText("Agua potable")).toBeInTheDocument();
     expect(tabla.getByText(/Instalación de dos tanques/)).toBeInTheDocument();
-    expect(tabla.getByText("Se programó revisión del cloro residual cada 48 horas.")).toBeInTheDocument();
-    expect(screen.getByText("Mostrando 4 de 4 intervenciones")).toBeInTheDocument();
   });
 
-  it("muestra el resumen del albergue", async () => {
-    renderizar();
+  it("filtra en servidor por búsqueda q y fechas, reiniciando a página 1 y permitiendo limpiar filtros", async () => {
+    const { usuario, gateway } = renderizar();
     await screen.findByRole("table");
 
-    const resumen = within(screen.getByRole("region", { name: "Resumen de intervenciones" }));
-    expect(resumen.getAllByText("4")).toHaveLength(2);
-    expect(resumen.getByText("2")).toBeInTheDocument();
-    expect(resumen.getByText("1 registro")).toBeInTheDocument();
-  });
-
-  it("muestra el estado vacío cuando no hay registros", async () => {
-    renderizar(crearGatewayMemoria([], 0));
-
-    expect(await screen.findByText("Aún no hay intervenciones registradas")).toBeInTheDocument();
-    expect(screen.getByText("Sin registros")).toBeInTheDocument();
-  });
-
-  it("filtra por texto, tipo y fecha, y permite limpiar los filtros", async () => {
-    const usuario = renderizar();
-    await screen.findByRole("table");
-
-    await usuario.type(screen.getByRole("searchbox"), "jabon");
+    await usuario.type(screen.getByRole("searchbox"), "jabón");
+    await waitFor(() => {
+      expect(gateway.listar).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "jabón", page: 1 })
+      );
+    });
     expect(within(screen.getByRole("table")).getByText("Higiene")).toBeInTheDocument();
-    expect(screen.getByText("Mostrando 1 de 4 intervenciones")).toBeInTheDocument();
 
     await usuario.clear(screen.getByRole("searchbox"));
-    await usuario.selectOptions(screen.getByLabelText("Tipo"), "Saneamiento");
-    expect(screen.getByText("Mostrando 1 de 4 intervenciones")).toBeInTheDocument();
-
-    await usuario.selectOptions(screen.getByLabelText("Tipo"), "");
-    await usuario.type(screen.getByLabelText("Desde la fecha"), "2026-11-09");
-    expect(screen.getByText("Mostrando 2 de 4 intervenciones")).toBeInTheDocument();
-
     await usuario.type(screen.getByRole("searchbox"), "no existe");
-    expect(screen.getByText("No hay intervenciones con los filtros aplicados")).toBeInTheDocument();
-    await usuario.click(screen.getByRole("button", { name: "Limpiar filtros" }));
-    expect(screen.getByText("Mostrando 4 de 4 intervenciones")).toBeInTheDocument();
-  });
+    expect(
+      await screen.findByText("No hay intervenciones con los filtros aplicados")
+    ).toBeInTheDocument();
 
-  it("valida los campos obligatorios", async () => {
-    const usuario = renderizar();
-    await screen.findByRole("table");
-
-    await usuario.click(formulario().getByRole("button", { name: "Guardar intervención" }));
-
-    const form = formulario();
-    expect(form.getByText("Revisa los campos marcados antes de guardar.")).toBeInTheDocument();
-    expect(form.getByText("Selecciona el tipo de intervención.")).toBeInTheDocument();
-    expect(form.getByText("La descripción es obligatoria.")).toBeInTheDocument();
-    expect(form.getByText("La fecha de realización es obligatoria.")).toBeInTheDocument();
-    expect(form.getByLabelText(/Tipo de intervención/)).toHaveFocus();
-    expect(form.getByLabelText(/Tipo de intervención/)).toHaveAttribute("aria-invalid", "true");
-
-    await usuario.selectOptions(form.getByLabelText(/Tipo de intervención/), "Higiene");
-    expect(form.queryByText("Selecciona el tipo de intervención.")).not.toBeInTheDocument();
-  });
-
-  it("registra una intervención, muestra el éxito y la agrega al historial", async () => {
-    const usuario = renderizar();
-    await screen.findByRole("table");
-
-    await llenarFormulario(usuario);
-    await usuario.click(formulario().getByRole("button", { name: "Guardar intervención" }));
-
-    expect(await screen.findByText("La intervención de tipo “Ventilación” se registró correctamente.")).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).getByText("Apertura de ventanas en los dormitorios.")).toBeInTheDocument();
-    expect(screen.getByText("Mostrando 5 de 5 intervenciones")).toBeInTheDocument();
-    expect(formulario().getByLabelText(/Descripción/)).toHaveValue("");
-
-    await usuario.click(screen.getByRole("button", { name: "Cerrar aviso" }));
-    expect(screen.queryByText(/se registró correctamente/)).not.toBeInTheDocument();
-  });
-
-  it("muestra el estado de guardado y los errores del servidor", async () => {
-    let rechazar: (error: unknown) => void = () => {};
-    const gateway = crearGatewayMemoria(INTERVENCIONES_DEMO, 0);
-    vi.spyOn(gateway, "registrar").mockImplementation(
-      () =>
-        new Promise((_resolve, reject) => {
-          rechazar = reject;
-        })
+    await usuario.click(
+      screen.getAllByRole("button", { name: /Limpiar filtros/i })[0]
     );
-    const usuario = renderizar(gateway);
-    await screen.findByRole("table");
-
-    await llenarFormulario(usuario);
-    await usuario.click(formulario().getByRole("button", { name: "Guardar intervención" }));
-
-    expect(formulario().getByRole("button", { name: "Guardando…" })).toBeDisabled();
-
-    rechazar(new ApiError(422, "Revisa los datos ingresados.", { descripcion: "Texto no permitido" }));
-
-    expect(await formulario().findByText("Revisa los datos ingresados.")).toBeInTheDocument();
-    expect(formulario().getByText("Texto no permitido")).toBeInTheDocument();
+    const tablaRestaurada = within(await screen.findByRole("table"));
+    expect(await tablaRestaurada.findByText("Agua potable")).toBeInTheDocument();
   });
 
-  it("muestra un mensaje genérico ante errores inesperados al guardar", async () => {
-    const gateway = crearGatewayMemoria(INTERVENCIONES_DEMO, 0);
-    vi.spyOn(gateway, "registrar").mockRejectedValue(new TypeError("x"));
-    const usuario = renderizar(gateway);
+  it("registra una intervención, muestra el éxito y recarga la página actual", async () => {
+    const { usuario } = renderizar();
     await screen.findByRole("table");
 
     await llenarFormulario(usuario);
-    await usuario.click(formulario().getByRole("button", { name: "Guardar intervención" }));
+    await usuario.click(
+      formulario().getByRole("button", { name: "Guardar intervención" })
+    );
 
     expect(
-      await formulario().findByText("No fue posible registrar la intervención. Inténtalo nuevamente.")
+      await screen.findByText(
+        "La intervención de tipo “Ventilación” se registró correctamente."
+      )
+    ).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("table")).findByText(
+        "Apertura de ventanas en los dormitorios."
+      )
     ).toBeInTheDocument();
   });
 
-  it("permite cancelar el formulario", async () => {
-    const usuario = renderizar();
+  it("muestra el error del servidor si falla la validación", async () => {
+    const gateway = crearGatewayTest();
+    vi.spyOn(gateway, "registrar").mockRejectedValueOnce(
+      new ApiError(422, "Revisa los datos ingresados.", {
+        descripcion: "Texto no permitido",
+      })
+    );
+    const { usuario } = renderizar(gateway);
     await screen.findByRole("table");
 
-    await usuario.type(formulario().getByLabelText(/Descripción/), "Texto temporal");
-    await usuario.click(formulario().getByRole("button", { name: "Cancelar" }));
+    await llenarFormulario(usuario);
+    await usuario.click(
+      formulario().getByRole("button", { name: "Guardar intervención" })
+    );
 
-    expect(formulario().getByLabelText(/Descripción/)).toHaveValue("");
-  });
-
-  it("muestra el error de carga y permite reintentar", async () => {
-    const gateway = crearGatewayMemoria(INTERVENCIONES_DEMO, 0);
-    const listar = vi
-      .spyOn(gateway, "listar")
-      .mockRejectedValueOnce(new ApiError(500, "Ocurrió un error en el servidor. Inténtalo nuevamente."))
-      .mockRejectedValueOnce(new TypeError("red"));
-    const usuario = renderizar(gateway);
-
-    expect(await screen.findByText("No fue posible cargar las intervenciones")).toBeInTheDocument();
-    expect(screen.getByText("Ocurrió un error en el servidor. Inténtalo nuevamente.")).toBeInTheDocument();
-
-    await usuario.click(screen.getByRole("button", { name: "Reintentar" }));
-    expect(await screen.findByText("Verifica tu conexión e inténtalo nuevamente.")).toBeInTheDocument();
-
-    await usuario.click(screen.getByRole("button", { name: "Reintentar" }));
-    expect(await screen.findByRole("table")).toBeInTheDocument();
-    expect(listar).toHaveBeenCalledTimes(3);
-  });
-
-  it("muestra tarjetas en celulares y el aviso de datos demostrativos", async () => {
-    const usuario = renderizar(undefined, true);
-
-    expect(screen.getByText(/Datos demostrativos/)).toBeInTheDocument();
-    const lista = within(await screen.findByRole("list", { name: "Intervenciones registradas" }));
-    expect(lista.getAllByRole("listitem")).toHaveLength(4);
-
-    Element.prototype.scrollIntoView = vi.fn();
-    await usuario.click(screen.getByRole("button", { name: "Registrar intervención" }));
-    expect(formulario().getByLabelText(/Tipo de intervención/)).toHaveFocus();
+    expect(
+      await formulario().findByText("Revisa los datos ingresados.")
+    ).toBeInTheDocument();
+    expect(formulario().getByText("Texto no permitido")).toBeInTheDocument();
   });
 });

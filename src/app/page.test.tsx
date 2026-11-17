@@ -1,10 +1,13 @@
-
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import HomePage from "./page";
+import HomePage from "@/layers/presentation/pages/consulta-publica-page";
+import type {
+  AlberguePublico,
+  PublicoGateway,
+} from "@/layers/application/services/publico-service";
+import type { ConsultaPaginada, Page } from "@/layers/application/services/paginacion";
 
-// Evita problemas con el componente Image de Next.js durante las pruebas.
 /* eslint-disable @next/next/no-img-element */
 vi.mock("next/image", () => ({
   default: ({
@@ -16,191 +19,170 @@ vi.mock("next/image", () => ({
 }));
 /* eslint-enable @next/next/no-img-element */
 
-describe("Página principal pública - Semáforo Vital", () => {
-  it("debe renderizar correctamente la página principal", () => {
-    render(<HomePage />);
+const ALBERGUES_BASE: AlberguePublico[] = [
+  {
+    id: "alb-1",
+    codigo: "ALB-PER-001",
+    nombre: "[DEMO] Albergue Municipal Centro",
+    departamento: "Risaralda",
+    municipio: "Pereira",
+    direccion: "Cra. 8 # 20-15",
+    latitud: 4.8143,
+    longitud: -75.6946,
+    capacidadInstalada: 200,
+    poblacionActual: 140,
+    porcentajeOcupacion: 70,
+    cuposDisponibles: 60,
+    nivelRiesgo: "verde" as const,
+    fechaCalculoRiesgo: "2026-11-17T10:00:00Z",
+    condicionesSanitarias: {
+      fecha: "2026-11-17T08:00:00Z",
+      aguaPotableDisponible: true,
+      banosDisponibles: 12,
+      estadoHigiene: "Adecuado",
+      estadoSaneamiento: "Adecuado",
+    },
+  },
+  {
+    id: "alb-2",
+    codigo: "ALB-DOS-002",
+    nombre: "Coliseo Metropolitano",
+    departamento: "Risaralda",
+    municipio: "Dosquebradas",
+    direccion: "Av. Simón Bolívar # 35-10",
+    latitud: 4.8395,
+    longitud: -75.6673,
+    capacidadInstalada: 300,
+    poblacionActual: 270,
+    porcentajeOcupacion: 90,
+    cuposDisponibles: 30,
+    nivelRiesgo: "rojo" as const,
+    fechaCalculoRiesgo: "2026-11-17T10:00:00Z",
+    condicionesSanitarias: null,
+  },
+];
 
-    expect(
-      screen.getByRole("heading", { name: "Semáforo Vital" })
-    ).toBeInTheDocument();
+function envolverPagina<T>(items: T[], total = items.length): Page<T> {
+  return {
+    items,
+    page: 1,
+    page_size: 20,
+    total,
+    total_pages: total > 0 ? Math.ceil(total / 20) : 0,
+    has_next: total > 20,
+    has_previous: false,
+  };
+}
 
-    expect(
-      screen.getByText("Información sanitaria de los albergues")
-    ).toBeInTheDocument();
+function crearGatewayMock(): PublicoGateway {
+  return {
+    listarAlbergues: vi.fn(async (consulta: ConsultaPaginada = {}) => {
+      const q = (consulta.q ?? "").trim().toLowerCase();
+      const filtrados = q
+        ? ALBERGUES_BASE.filter(
+            (a) =>
+              a.nombre.toLowerCase().includes(q) ||
+              a.municipio.toLowerCase().includes(q) ||
+              a.departamento.toLowerCase().includes(q)
+          )
+        : ALBERGUES_BASE;
+      return envolverPagina(filtrados, q ? filtrados.length : 30);
+    }),
+    listarAlertas: vi.fn(async () =>
+      envolverPagina([
+        {
+          id: "alt-1",
+          albergueId: "alb-2",
+          fechaAlerta: "2026-11-17T09:30:00Z",
+          nivelRiesgo: "rojo" as const,
+          tipoAlerta: "Capacidad",
+          mensaje: "Ocupación superior al 85% en Coliseo Metropolitano.",
+          activa: true,
+        },
+      ])
+    ),
+    listarAlertasAlbergue: vi.fn(async () => envolverPagina([])),
+  };
+}
+
+describe("Página principal institucional conectada a /api/v1/publico con Page<T>", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    window.history.replaceState({}, "", "/");
   });
 
-it("debe mostrar los tres niveles de riesgo", () => {
-  render(<HomePage />);
-
-  expect(screen.getAllByText(/Riesgo\s+bajo/).length).toBeGreaterThan(0);
-  expect(screen.getAllByText(/Riesgo\s+medio/).length).toBeGreaterThan(0);
-  expect(screen.getAllByText(/Riesgo\s+crítico/).length).toBeGreaterThan(0);
-});
-
-  it("debe mostrar inicialmente cuatro albergues", () => {
-    render(<HomePage />);
+  it("renderiza los datos reales paginados, conserva etiquetas [DEMO] y comunica la cobertura visible en el mapa", async () => {
+    const gateway = crearGatewayMock();
+    render(<HomePage gateway={gateway} />);
 
     expect(
-      screen.getByText("Albergue Escuela Central")
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Información sanitaria de los albergues",
+      })
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText("Polideportivo Norte")
-    ).toBeInTheDocument();
-
+      (await screen.findAllByText("[DEMO] Albergue Municipal Centro")).length
+    ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByText("Centro Comunal La Esperanza")
-    ).toBeInTheDocument();
-
+      screen.getAllByText("Coliseo Metropolitano").length
+    ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByText("Instituto Técnico Sur")
+      screen.getByText("Ocupación superior al 85% en Coliseo Metropolitano.")
     ).toBeInTheDocument();
-
+    // Indica explícitamente cuántos albergues se muestran en el mapa respecto al total (2 de 30)
     expect(
-      screen.queryByText("Coliseo Municipal")
-    ).not.toBeInTheDocument();
+      screen.getByText(/Mostrando 2 de 30 albergues habilitados/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Educación" })).toHaveAttribute(
+      "href",
+      "/educacion"
+    );
   });
 
-  it("debe mostrar los demás albergues al hacer clic en Ver más", () => {
-    render(<HomePage />);
+  it("permite filtrar albergues en servidor por búsqueda y por nivel del semáforo", async () => {
+    const gateway = crearGatewayMock();
+    render(<HomePage gateway={gateway} />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /ver más albergues/i })
+    await screen.findAllByText("[DEMO] Albergue Municipal Centro");
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: /buscar albergue/i }),
+      {
+        target: { value: "Dosquebradas" },
+      }
     );
 
-    expect(
-      screen.getByText("Coliseo Municipal")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Centro Comunitario El Bosque")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Escuela Rural San José")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Centro Deportivo La Unión")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", { name: /ver más albergues/i })
-    ).not.toBeInTheDocument();
-  });
-
-  it("debe desplegar los detalles de un albergue", () => {
-    render(<HomePage />);
-
-    const botonesDetalles = screen.getAllByRole("button", {
-      name: /ver detalles/i,
+    await waitFor(() => {
+      expect(gateway.listarAlbergues).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "Dosquebradas", page: 1 })
+      );
     });
 
-    fireEvent.click(botonesDetalles[0]);
-
     expect(
-      screen.getByText("Información del albergue")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Condiciones sanitarias")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Agua potable")
-    ).toBeInTheDocument();
-  });
-
-  it("debe abrir las recomendaciones de una alerta sanitaria", () => {
-    render(<HomePage />);
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /ver recomendaciones/i,
+      screen.queryByRole("heading", {
+        name: "[DEMO] Albergue Municipal Centro",
       })
-    );
-
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("dialog")
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText(
-        "Recomendaciones para el consumo de agua segura"
-      )
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Hierve el agua antes de consumirla.")
+      screen.getByRole("heading", { name: "Coliseo Metropolitano" })
     ).toBeInTheDocument();
   });
 
-  it("debe cerrar el modal de recomendaciones", () => {
-    render(<HomePage />);
+  it("despliega las condiciones sanitarias reales del albergue al consultar detalle", async () => {
+    const gateway = crearGatewayMock();
+    render(<HomePage gateway={gateway} />);
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /ver recomendaciones/i,
-      })
-    );
+    await screen.findAllByText("[DEMO] Albergue Municipal Centro");
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Cerrar recomendaciones" })
-    );
+    const botones = screen.getAllByRole("button", {
+      name: /ver condiciones sanitarias/i,
+    });
+    fireEvent.click(botones[0]);
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("debe abrir un recurso educativo", () => {
-    render(<HomePage />);
-
-    fireEvent.click(
-      screen.getAllByRole("button", {
-        name: /consultar recurso/i,
-      })[0]
-    );
-
-    expect(
-      screen.getByRole("dialog")
-    ).toBeInTheDocument();
-
-expect(
-  screen.getByRole("dialog")
-).toHaveTextContent("Agua segura");
-  });
-
-  it("debe cerrar el recurso educativo", () => {
-    render(<HomePage />);
-
-    fireEvent.click(
-      screen.getAllByRole("button", {
-        name: /consultar recurso/i,
-      })[0]
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Cerrar recurso" })
-    );
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("debe mostrar los enlaces de navegación principales", () => {
-    render(<HomePage />);
-
-    expect(
-      screen.getAllByRole("link", { name: "Inicio" }).length
-    ).toBeGreaterThan(0);
-
-    expect(
-      screen.getAllByRole("link", { name: "Albergues" }).length
-    ).toBeGreaterThan(0);
-
-    expect(
-      screen.getAllByRole("link", { name: "Mapa" }).length
-    ).toBeGreaterThan(0);
-
-    expect(
-      screen.getAllByRole("link", { name: "Alertas" }).length
-    ).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByText("12 disponibles")).toBeInTheDocument();
+    });
   });
 });
