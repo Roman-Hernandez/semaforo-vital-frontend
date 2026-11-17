@@ -246,20 +246,25 @@ describe("Gestión de albergues paginada (/gestion/albergues)", () => {
         expect.objectContaining({ activo: false, page: 1 })
       );
     });
-    expect(
-      await within(screen.getByRole("table")).findByText(
-        "Complejo Municipal El Roble"
-      )
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("table")).getByText("Complejo Municipal El Roble")
+      ).toBeInTheDocument();
+    });
 
     await usuario.selectOptions(
       screen.getByLabelText("Filtrar por estado"),
       "todos"
     );
     await usuario.type(screen.getByRole("searchbox"), "dosquebradas");
-    expect(
-      await within(screen.getByRole("table")).findByText("Polideportivo Norte")
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(gateway.listar).toHaveBeenLastCalledWith(
+        expect.objectContaining({ q: "dosquebradas", page: 1 })
+      );
+      expect(
+        within(screen.getByRole("table")).getByText("Polideportivo Norte")
+      ).toBeInTheDocument();
+    });
   });
 
   it("consulta el detalle de un albergue y sus registros sanitarios globales paginados", async () => {
