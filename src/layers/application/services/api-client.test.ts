@@ -7,6 +7,7 @@ import {
   leerTokenAcceso,
   mensajePorEstado,
 } from "./api-client";
+import { CLAVE_USUARIO } from "./sesion";
 
 function respuesta(status: number, cuerpo?: unknown): Response {
   return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), {
@@ -16,11 +17,14 @@ function respuesta(status: number, cuerpo?: unknown): Response {
 }
 
 describe("Cliente de la API", () => {
-  afterEach(() => sessionStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
-  it("lee el token guardado por el inicio de sesión", () => {
+  it("lee el token guardado en localStorage por el inicio de sesión", () => {
     expect(leerTokenAcceso()).toBeNull();
-    sessionStorage.setItem(CLAVE_TOKEN_ACCESO, "abc");
+    localStorage.setItem(CLAVE_TOKEN_ACCESO, "abc");
     expect(leerTokenAcceso()).toBe("abc");
   });
 
@@ -44,6 +48,20 @@ describe("Cliente de la API", () => {
     await cliente.solicitar("/x");
 
     expect(fetchFn.mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("limpia localStorage automáticamente cuando el servidor responde 401", async () => {
+    localStorage.setItem(CLAVE_TOKEN_ACCESO, "token-vencido");
+    localStorage.setItem(CLAVE_USUARIO, JSON.stringify({ id: "1", role: "administrador_albergue" }));
+
+    const fetchFn = vi.fn<typeof fetch>(async () => respuesta(401, { detail: "Token inválido" }));
+    const cliente = crearClienteApi("https://api.local", leerTokenAcceso, fetchFn);
+
+    await expect(cliente.solicitar("/api/v1/mi-albergue")).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(localStorage.getItem(CLAVE_TOKEN_ACCESO)).toBeNull();
+    expect(localStorage.getItem(CLAVE_USUARIO)).toBeNull();
   });
 
   it("traduce los errores de validación a campos", async () => {
@@ -91,5 +109,20 @@ describe("Cliente de la API", () => {
 
   it("espera el tiempo indicado", async () => {
     await expect(esperar(0)).resolves.toBeUndefined();
+  });
+
+  it("traduce el formato de validación del backend sin perder el campo", async () => {
+    const fetchFn = vi.fn(async () =>
+      respuesta(422, {
+        code: "VALIDATION_ERROR",
+        detail: "Datos de entrada inválidos",
+        errors: [{ location: ["body", "capacidad_instalada"], message: "Valor inválido", type: "int_type" }],
+      })
+    );
+    const cliente = crearClienteApi("https://api.local", () => null, fetchFn as typeof fetch);
+    await expect(cliente.solicitar("/api/v1/mi-albergue")).rejects.toMatchObject({
+      status: 422,
+      campos: { capacidad_instalada: "Valor inválido" },
+    });
   });
 });

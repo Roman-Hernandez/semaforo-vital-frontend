@@ -18,7 +18,6 @@ export interface Albergue {
 }
 
 export interface AlbergueEntrada {
-  codigo: string;
   nombre: string;
   departamento: string;
   municipio: string;
@@ -67,7 +66,6 @@ export const FORMULARIO_VACIO: AlbergueFormulario = {
   activo: true,
 };
 
-const PATRON_CODIGO = /^[A-Z0-9]+(?:-[A-Z0-9]+)*$/;
 const PATRON_DECIMAL = /^-?\d+(?:[.,]\d+)?$/;
 
 function aNumero(valor: string): number {
@@ -127,15 +125,6 @@ export function validarAlbergue(
 ): ErroresAlbergue {
   const errores: ErroresAlbergue = {};
 
-  const codigo = formulario.codigo.trim();
-
-  if (!codigo) {
-    errores.codigo = "El código es obligatorio.";
-  } else if (codigo.length > 20 || !PATRON_CODIGO.test(codigo)) {
-    errores.codigo =
-      "Usa mayúsculas, números y guiones (máx. 20). Ej: ALB-PER-001.";
-  }
-
   errores.nombre = validarTexto(formulario.nombre, "El nombre", 3, 120);
   errores.departamento = validarTexto(
     formulario.departamento,
@@ -176,7 +165,6 @@ export function formularioAEntrada(
   formulario: AlbergueFormulario
 ): AlbergueEntrada {
   return {
-    codigo: formulario.codigo.trim().toUpperCase(),
     nombre: formulario.nombre.trim(),
     departamento: formulario.departamento.trim(),
     municipio: formulario.municipio.trim(),

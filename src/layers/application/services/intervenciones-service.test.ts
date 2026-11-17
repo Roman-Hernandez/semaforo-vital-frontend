@@ -1,102 +1,122 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, type ClienteApi } from "./api-client";
-import {
-  INTERVENCIONES_DEMO,
-  RUTA_INTERVENCIONES,
-  crearGatewayHttp,
-  crearGatewayMemoria,
-  desdeApi,
-  haciaApi,
-  obtenerIntervencionesGateway,
-} from "./intervenciones-service";
+import { crearClienteApi } from "./api-client";
+import * as moduloIntervenciones from "./intervenciones-service";
+import { crearGatewayHttp, desdeApi, haciaApi } from "./intervenciones-service";
 
-const entrada = {
-  tipo: "Ventilación",
-  descripcion: "Apertura de ventanas y ventiladores en dormitorios.",
-  observaciones: " ",
-  fecha: "2026-11-14",
-};
-
-const datoApi = {
-  _id: "abc",
-  tipo_intervencion: "Ventilación",
-  descripcion: "Apertura de ventanas y ventiladores en dormitorios.",
-  fecha_intervencion: "2026-11-14T05:00:00.000Z",
-  created_at: "2026-11-14T15:00:00.000Z",
-};
-
-function clienteCon(solicitar: ClienteApi["solicitar"]): ClienteApi {
-  return { solicitar };
+function respuesta(status: number, cuerpo: unknown): Response {
+  return new Response(JSON.stringify(cuerpo), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
-describe("Servicio de intervenciones", () => {
-  it("convierte el contrato de MongoDB en ambos sentidos", () => {
-    expect(desdeApi(datoApi)).toEqual({
-      id: "abc",
-      tipo: "Ventilación",
-      descripcion: datoApi.descripcion,
+describe("Servicio de intervenciones (/api/v1/mi-albergue/intervenciones)", () => {
+  it("no exporta INTERVENCIONES_DEMO ni crearGatewayMemoria", () => {
+    expect(moduloIntervenciones).not.toHaveProperty("INTERVENCIONES_DEMO");
+    expect(moduloIntervenciones).not.toHaveProperty("crearGatewayMemoria");
+  });
+
+  it("mapea intervenciones desde y hacia la API", () => {
+    expect(
+      desdeApi({
+        id: "int-1",
+        tipo_intervencion: "Agua potable",
+        descripcion: "Instalación de filtro",
+        fecha_intervencion: "2026-11-17T00:00:00Z",
+        observaciones: "Sin novedad",
+      })
+    ).toMatchObject({
+      id: "int-1",
+      tipo: "Agua potable",
+      fecha: "2026-11-17",
+    });
+
+    expect(
+      haciaApi({
+        tipo: "Agua potable",
+        descripcion: "Instalación de filtro",
+        fecha: "2026-11-17",
+        observaciones: "",
+      })
+    ).toEqual({
+      tipo_intervencion: "Agua potable",
+      descripcion: "Instalación de filtro",
+      fecha_intervencion: "2026-11-17",
+    });
+  });
+
+  it("lista paginado, registra (POST) y actualiza (PUT) intervenciones", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (_url, init) => {
+      if (!init?.method || init.method === "GET") {
+        return respuesta(200, {
+          items: [
+            {
+              id: "int-1",
+              tipo_intervencion: "Higiene",
+              descripcion: "Entrega de kits de aseo",
+              fecha_intervencion: "2026-11-17T00:00:00Z",
+              observaciones: null,
+            },
+          ],
+          page: 1,
+          page_size: 20,
+          total: 1,
+          total_pages: 1,
+          has_next: false,
+          has_previous: false,
+        });
+      }
+      return respuesta(200, {
+        id: "int-1",
+        tipo_intervencion: "Higiene",
+        descripcion: "Entrega de kits de aseo",
+        fecha_intervencion: "2026-11-17T00:00:00Z",
+        observaciones: null,
+      });
+    });
+
+    const gateway = crearGatewayHttp(
+      crearClienteApi("https://api.local", () => "token-1", fetchFn)
+    );
+
+    const pagina = await gateway.listar({ page: 1, page_size: 20, q: "kits" });
+    expect(pagina.items).toHaveLength(1);
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      "https://api.local/api/v1/mi-albergue/intervenciones?page=1&page_size=20&q=kits"
+    );
+
+    await gateway.registrar({
+      tipo: "Higiene",
+      descripcion: "Entrega de kits de aseo",
+      fecha: "2026-11-17",
       observaciones: "",
-      fecha: "2026-11-14",
-      registradoEn: "2026-11-14T15:00:00.000Z",
     });
-    expect(desdeApi({ ...datoApi, _id: undefined, id: "x1", observaciones: "Ok" })).toMatchObject({ id: "x1", observaciones: "Ok" });
-    expect(desdeApi({ ...datoApi, _id: undefined, created_at: undefined }).id).toBe("2026-11-14T05:00:00.000Z-Ventilación");
 
-    expect(haciaApi(entrada)).toEqual({
-      tipo_intervencion: "Ventilación",
-      descripcion: entrada.descripcion,
-      fecha_intervencion: "2026-11-14",
+    await gateway.actualizar?.("int-1", {
+      tipo: "Higiene",
+      descripcion: "Entrega de kits de aseo actualizada",
+      fecha: "2026-11-17",
+      observaciones: "Completado",
     });
-    expect(haciaApi({ ...entrada, observaciones: "Con apoyo" })).toHaveProperty("observaciones", "Con apoyo");
-  });
 
-  it("lista y registra usando el endpoint del albergue asignado", async () => {
-    const solicitar = vi.fn(
-      async (_ruta: string, init?: RequestInit) => (init?.method === "POST" ? datoApi : [datoApi]) as never
+    expect(fetchFn.mock.calls[1][1]?.method).toBe("POST");
+    expect(fetchFn.mock.calls[2][0]).toBe(
+      "https://api.local/api/v1/mi-albergue/intervenciones/int-1"
     );
-    const gateway = crearGatewayHttp(clienteCon(solicitar));
-
-    expect(await gateway.listar()).toHaveLength(1);
-    expect((await gateway.registrar(entrada)).id).toBe("abc");
-    expect(solicitar).toHaveBeenNthCalledWith(1, RUTA_INTERVENCIONES);
-    expect(solicitar).toHaveBeenNthCalledWith(2, RUTA_INTERVENCIONES, expect.objectContaining({ method: "POST" }));
+    expect(fetchFn.mock.calls[2][1]?.method).toBe("PUT");
   });
+});
 
-  it("traduce los campos con error del backend al formulario", async () => {
-    const gateway = crearGatewayHttp(
-      clienteCon(async () => {
-        throw new ApiError(422, "Revisa los datos ingresados.", { fecha_intervencion: "Fecha inválida", otro: "x" });
-      })
-    );
+it.each(["registrar", "actualizar"] as const)("traduce validación al %s una intervención", async (method) => {
+  const fetchFn = vi.fn<typeof fetch>(async () => respuesta(422, { detail: [{ loc: ["body", "tipo_intervencion"], msg: "Tipo obligatorio", type: "value_error" }] }));
+  const gateway = crearGatewayHttp(crearClienteApi("https://api.local", () => null, fetchFn));
+  const entrada = { fecha: "2026-11-17", tipo: "Higiene", descripcion: "Entrega", observaciones: "" };
+  const pending = method === "registrar" ? gateway.registrar(entrada) : gateway.actualizar!("a/b", entrada);
+  await expect(pending).rejects.toMatchObject({ status: 422, campos: { tipo: expect.any(String) } });
+});
 
-    await expect(gateway.registrar(entrada)).rejects.toMatchObject({
-      status: 422,
-      campos: { fecha: "Fecha inválida", otro: "x" },
-    });
-  });
-
-  it("propaga otros errores sin cambios", async () => {
-    const gateway = crearGatewayHttp(
-      clienteCon(async () => {
-        throw new TypeError("fallo");
-      })
-    );
-
-    await expect(gateway.registrar(entrada)).rejects.toThrow("fallo");
-  });
-
-  it("trabaja en memoria con datos de prueba", async () => {
-    const gateway = crearGatewayMemoria(INTERVENCIONES_DEMO, 0);
-
-    expect(await gateway.listar()).toHaveLength(INTERVENCIONES_DEMO.length);
-
-    const creada = await gateway.registrar(entrada);
-    expect(creada).toMatchObject({ tipo: "Ventilación", observaciones: "", fecha: "2026-11-14" });
-    expect((await gateway.listar())[0].id).toBe(creada.id);
-  });
-
-  it("elige la API real solo si está configurada", () => {
-    expect(obtenerIntervencionesGateway("https://api.local")).toHaveProperty("listar");
-    expect(obtenerIntervencionesGateway("")).toHaveProperty("registrar");
-  });
+it("conserva identificadores legados y campos opcionales de intervenciones", () => {
+  expect(desdeApi({ _id: "mongo-id", fecha_intervencion: "2026-11-17", tipo_intervencion: "Agua", descripcion: "Revisión" })).toMatchObject({ id: "mongo-id", observaciones: "", registradoEn: "" });
+  expect(desdeApi({ fecha_intervencion: "2026-11-17", tipo_intervencion: "Agua", descripcion: "Revisión" }).id).toBe("2026-11-17-Agua");
+  expect(haciaApi({ fecha: "2026-11-17", tipo: "Agua", descripcion: "Revisión", observaciones: "  Entrega  " })).toHaveProperty("observaciones", "Entrega");
 });

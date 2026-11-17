@@ -5,10 +5,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
-import { CheckCircle2, Lock, Plus, RefreshCw, X } from "lucide-react";
+import { CheckCircle2,Lock,Plus,RefreshCw,X } from "lucide-react";
 import {
   formularioAEntrada,
   type Albergue,
@@ -18,12 +19,22 @@ import {
   AlberguesError,
   obtenerAlberguesGateway,
   type AlberguesGateway,
+  type RegistrosAlbergueGlobal,
+  type ResumenAlberguesGlobal,
 } from "@/layers/application/services/albergues-service";
+import {
+  paginaVacia,
+  TAMANO_PAGINA_PREDETERMINADO,
+  type ConsultaPaginada,
+  type Page,
+} from "@/layers/application/services/paginacion";
 import {
   leerToken,
   obtenerSesion,
+  suscribirSesion,
   type Sesion,
 } from "@/layers/application/services/sesion";
+import { useValorDebounced } from "@/layers/presentation/hooks/use-listado-paginado";
 import {
   AlberguesLista,
   FILTROS_INICIALES,
@@ -35,96 +46,93 @@ import {
   type ModoPanel,
 } from "@/layers/presentation/components/albergues/albergue-panel";
 
-export const ALBERGUES_POR_PAGINA = 5;
+export { TAMANO_PAGINA_PREDETERMINADO as ALBERGUES_POR_PAGINA } from "@/layers/application/services/paginacion";
 
 interface GestionAlberguesPageProps {
-  /** Permite inyectar datos y sesión en pruebas. */
   readonly gateway?: AlberguesGateway;
   readonly sesion?: Sesion;
 }
 
-const sinSuscripcion = () => () => {};
-
-function useSesion(sesionFija?: Sesion): Sesion | undefined {
-  const token = useSyncExternalStore(
-    sinSuscripcion,
-    () => leerToken() ?? "",
+function useSesion(sesionFija?: Sesion): Sesion|undefined {
+  const token=useSyncExternalStore(
+    suscribirSesion,
+    () => leerToken()??"",
     () => undefined
   );
 
   return useMemo(() => {
-    if (sesionFija) return sesionFija;
-    if (token === undefined) return undefined;
-    return obtenerSesion(token || null, Boolean(process.env.NEXT_PUBLIC_API_URL));
-  }, [sesionFija, token]);
-}
-
-function normalizar(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replaceAll(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function filtrar(albergues: Albergue[], filtros: FiltrosAlbergues): Albergue[] {
-  const busqueda = normalizar(filtros.busqueda);
-
-  return albergues.filter((albergue) => {
-    if (filtros.estado === "activos" && !albergue.activo) return false;
-    if (filtros.estado === "inactivos" && albergue.activo) return false;
-    if (filtros.riesgo !== "todos" && albergue.riesgo !== filtros.riesgo) return false;
-
-    if (!busqueda) return true;
-
-    return normalizar(
-      `${albergue.nombre} ${albergue.codigo} ${albergue.municipio} ${albergue.departamento} ${albergue.administrador ?? ""}`
-    ).includes(busqueda);
-  });
+    if(sesionFija) return sesionFija;
+    if(token===undefined) return undefined;
+    return obtenerSesion(token||null);
+  },[sesionFija,token]);
 }
 
 function horaActual(): string {
-  return new Intl.DateTimeFormat("es-CO", {
+  return new Intl.DateTimeFormat("es-CO",{
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Bogota",
   }).format(new Date());
 }
 
-function enfocarPanel() {
-  if (globalThis.matchMedia?.("(max-width: 1023px)").matches) {
-    document.getElementById("panel-albergue")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}
+function ResumenGlobal({
+  resumen,
+}: {
+  readonly resumen: ResumenAlberguesGlobal;
+}) {
+  const inactivos=Math.max(
+    0,
+    resumen.totalRegistrados-resumen.totalActivos
+  );
+  const sinAdmin=Math.max(
+    0,
+    resumen.totalRegistrados-resumen.conAdministrador
+  );
 
-function Resumen({ albergues }: { readonly albergues: Albergue[] }) {
-  const activos = albergues.filter((a) => a.activo).length;
-  const poblacion = albergues.reduce((total, a) => total + (a.poblacionActual ?? 0), 0);
-  const capacidad = albergues
-    .filter((a) => a.poblacionActual !== null)
-    .reduce((total, a) => total + a.capacidadInstalada, 0);
-  const conAdministrador = albergues.filter((a) => a.administrador).length;
-  const criticos = albergues.filter((a) => a.activo && a.riesgo === "critico").length;
-  const ocupacion = capacidad > 0 ? Math.round((poblacion / capacidad) * 100) : 0;
-
-  const tarjetas = [
-    { etiqueta: "Registrados", valor: String(albergues.length), detalle: `${activos} activos` },
-    { etiqueta: "Población", valor: poblacion.toLocaleString("es-CO"), detalle: `${ocupacion}% ocupación` },
-    { etiqueta: "Con administrador", valor: String(conAdministrador), detalle: `${albergues.length - conAdministrador} pendientes` },
-    { etiqueta: "Críticos", valor: String(criticos), detalle: "Intervención inmediata", alerta: criticos > 0 },
+  const tarjetas=[
+    {
+      etiqueta: "Albergues registrados",
+      valor: String(resumen.totalRegistrados),
+      detalle: `${resumen.totalActivos} activos · ${inactivos} inactivos`,
+    },
+    {
+      etiqueta: "Con administrador",
+      valor: String(resumen.conAdministrador),
+      detalle: `${sinAdmin} sin asignar`,
+    },
+    {
+      etiqueta: "Riesgo crítico",
+      valor: String(resumen.criticos),
+      detalle: `${resumen.sinClasificacion} sin clasificación`,
+    },
+    {
+      etiqueta: "Población alojada",
+      valor:
+        resumen.poblacionActual===null
+          ? "Sin dato completo"
+          :resumen.poblacionActual.toLocaleString("es-CO"),
+      detalle: `${resumen.porcentajeOcupacion===null
+          ? "Ocupación sin dato"
+          :`${Math.round(resumen.porcentajeOcupacion)}% ocupación`
+        } · ${resumen.alberguesSinPoblacion} sin reporte`,
+    },
   ];
 
   return (
-    <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-[#E3EAEE] lg:grid-cols-4">
+    <dl
+      aria-label="Resumen global de albergues"
+      className="grid grid-cols-2 gap-4 border-t-2 border-[#008994] bg-white p-5 shadow-xs lg:grid-cols-4"
+    >
       {tarjetas.map((tarjeta) => (
-        <div key={tarjeta.etiqueta}>
-          <dt className={`text-[11px] ${tarjeta.alerta ? "text-[#CF343B]" : "text-[#53636B]"}`}>
-            {tarjeta.etiqueta}
-          </dt>
-          <dd className={`mt-0.5 text-[13px] ${tarjeta.alerta ? "text-[#CF343B]" : "text-[#172126]"}`}>
-            <span className="font-bold">{tarjeta.valor}</span>
-            <span className="text-[12px]"> · {tarjeta.detalle}</span>
+        <div
+          key={tarjeta.etiqueta}
+          className="border-l-2 border-[#EEF2F4] pl-3 first:border-l-0 first:pl-0"
+        >
+          <dt className="text-xs text-[#53636B]">{tarjeta.etiqueta}</dt>
+          <dd className="mt-1 text-lg font-bold text-[#164652]">
+            {tarjeta.valor}
           </dd>
+          <p className="mt-0.5 text-xs text-[#718895]">{tarjeta.detalle}</p>
         </div>
       ))}
     </dl>
@@ -133,17 +141,23 @@ function Resumen({ albergues }: { readonly albergues: Albergue[] }) {
 
 function AccesoRestringido() {
   return (
-    <div role="alert" className="mx-auto mt-10 max-w-md rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-[#E3EAEE]">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF7E4] text-[#B77D00]">
+    <div
+      role="alert"
+      className="mx-auto mt-10 max-w-md border-t-2 border-[#A96A00] bg-white p-8 text-center shadow-xs"
+    >
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF4D9] text-[#A96A00]">
         <Lock size={22} aria-hidden="true" />
       </span>
-      <h2 className="mt-4 text-base font-bold text-[#172126]">Acceso restringido</h2>
-      <p className="mt-2 text-[13px] text-[#53636B]">
-        La gestión de albergues es exclusiva del Súper Administrador. Inicia sesión con una cuenta autorizada.
+      <h2 className="mt-4 text-base font-bold text-[#164652]">
+        Acceso restringido
+      </h2>
+      <p className="mt-2 text-xs text-[#53636B]">
+        La gestión general de albergues requiere permisos de coordinación
+        general. Inicia sesión con una cuenta autorizada.
       </p>
       <Link
         href="/login"
-        className="mt-5 inline-flex rounded-lg bg-[#00C3D0] px-4 py-2 text-[13px] font-semibold text-white"
+        className="mt-5 inline-flex bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E]"
       >
         Ir a iniciar sesión
       </Link>
@@ -151,110 +165,225 @@ function AccesoRestringido() {
   );
 }
 
-export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesionFija }: GestionAlberguesPageProps) {
-  const sesion = useSesion(sesionFija);
-  const [gateway] = useState<AlberguesGateway>(
-    () => gatewayInyectado ?? obtenerAlberguesGateway(leerToken)
+export function GestionAlberguesPage({
+  gateway: gatewayInyectado,
+  sesion: sesionFija,
+}: GestionAlberguesPageProps) {
+  const sesion=useSesion(sesionFija);
+  const [gateway]=useState<AlberguesGateway>(
+    () => gatewayInyectado??obtenerAlberguesGateway(leerToken)
   );
 
-  const [albergues, setAlbergues] = useState<Albergue[]>([]);
-  const [estadoCarga, setEstadoCarga] = useState<EstadoCarga>("cargando");
-  const [mensajeError, setMensajeError] = useState("");
-  const [ultimaActualizacion, setUltimaActualizacion] = useState("");
-  const [intentoCarga, setIntentoCarga] = useState(0);
+  const [paginaDatos,setPaginaDatos]=useState<Page<Albergue>>(() =>
+    paginaVacia<Albergue>(1,TAMANO_PAGINA_PREDETERMINADO)
+  );
+  const [resumenGlobal,setResumenGlobal]=
+    useState<ResumenAlberguesGlobal|null>(null);
+  const [claveListadoResuelta,setClaveListadoResuelta]=useState("");
+  const [estadoCarga,setEstadoCarga]=useState<EstadoCarga>("cargando");
+  const [mensajeError,setMensajeError]=useState("");
+  const [ultimaActualizacion,setUltimaActualizacion]=useState("");
+  const [intentoCarga,setIntentoCarga]=useState(0);
 
-  const [filtros, setFiltros] = useState<FiltrosAlbergues>(FILTROS_INICIALES);
-  const [pagina, setPagina] = useState(1);
+  const [filtros,setFiltros]=useState<FiltrosAlbergues>(FILTROS_INICIALES);
+  const [pagina,setPagina]=useState(1);
+  const [pageSize,setPageSize]=useState<number>(TAMANO_PAGINA_PREDETERMINADO);
 
-  const [modo, setModo] = useState<ModoPanel>("consultar");
-  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
-  const [confirmandoEstado, setConfirmandoEstado] = useState(false);
-  const [cambiandoEstado, setCambiandoEstado] = useState(false);
-  const [errorEstado, setErrorEstado] = useState("");
-  const [aviso, setAviso] = useState("");
+  const busquedaDebounced=useValorDebounced(filtros.busqueda);
 
-  const esSuperAdmin = sesion?.rol === "super_administrador";
+  const [modo,setModo]=useState<ModoPanel>("consultar");
+  const [seleccionado,setSeleccionado]=useState<Albergue|null>(null);
+  const [registrosGlobales,setRegistrosGlobales]=
+    useState<RegistrosAlbergueGlobal|null>(null);
+  const [claveRegistrosResuelta,setClaveRegistrosResuelta]=useState("");
+  const [consultaRegistros,setConsultaRegistros]=useState<ConsultaPaginada>({
+    page: 1,
+    page_size: 10,
+  });
+
+  const [confirmandoEstado,setConfirmandoEstado]=useState(false);
+  const [cambiandoEstado,setCambiandoEstado]=useState(false);
+  const [errorEstado,setErrorEstado]=useState("");
+  const [aviso,setAviso]=useState("");
+
+  const secuenciaListadoRef=useRef(0);
+  const esSuperAdmin=sesion?.rol==="super_administrador";
+
+  const cargarResumen=useCallback(() => {
+    if(!esSuperAdmin||!gateway.resumen) return;
+    gateway
+      .resumen()
+      .then((res) => setResumenGlobal(res))
+      .catch(() => {
+        // Si resumen falla se mantiene el listado operativo
+      });
+  },[esSuperAdmin,gateway]);
 
   useEffect(() => {
-    if (!esSuperAdmin) return;
+    cargarResumen();
+  },[cargarResumen,intentoCarga]);
 
-    let vigente = true;
+  const rangoFechasInvalido=Boolean(
+    filtros.desde&&filtros.hasta&&filtros.desde>filtros.hasta
+  );
+  const claveListadoActiva=`${esSuperAdmin}|${pagina}|${pageSize}|${busquedaDebounced}|${filtros.estado}|${filtros.desde}|${filtros.hasta}|${intentoCarga}`;
+  const estadoCargaEfectivo: EstadoCarga=
+    !rangoFechasInvalido&&claveListadoResuelta!==claveListadoActiva
+      ? "cargando"
+      :estadoCarga;
+
+  useEffect(() => {
+    if(!esSuperAdmin||rangoFechasInvalido) return;
+
+    const idPeticion=++secuenciaListadoRef.current;
+
+    function valorFiltroActivo() {
+      if(filtros.estado==="activos") { return true; }
+      if(filtros.estado==="inactivos") { return false; }
+      return undefined;
+    }
+
+    const activoParam=
+      valorFiltroActivo();
 
     gateway
-      .listar()
+      .listar({
+        page: pagina,
+        page_size: pageSize,
+        q: busquedaDebounced,
+        desde: filtros.desde||undefined,
+        hasta: filtros.hasta||undefined,
+        activo: activoParam,
+      })
       .then((datos) => {
-        if (!vigente) return;
-        setAlbergues(datos);
+        if(idPeticion!==secuenciaListadoRef.current) return;
+        if(
+          datos.items.length===0&&
+          datos.total>0&&
+          datos.total_pages>0&&
+          pagina>datos.total_pages
+        ) {
+          setPagina(datos.total_pages);
+          return;
+        }
+        setPaginaDatos(datos);
         setEstadoCarga("listo");
+        setClaveListadoResuelta(claveListadoActiva);
         setUltimaActualizacion(horaActual());
       })
       .catch((error: unknown) => {
-        if (!vigente) return;
+        if(idPeticion!==secuenciaListadoRef.current) return;
         setMensajeError(
           error instanceof AlberguesError
             ? error.message
-            : "Verifica tu conexión e inténtalo nuevamente."
+            :"Verifica tu conexión e inténtalo nuevamente."
         );
         setEstadoCarga("error");
+        setClaveListadoResuelta(claveListadoActiva);
+      });
+  },[
+    gateway,
+    esSuperAdmin,
+    rangoFechasInvalido,
+    claveListadoActiva,
+    pagina,
+    pageSize,
+    busquedaDebounced,
+    filtros.estado,
+    filtros.desde,
+    filtros.hasta,
+    intentoCarga,
+  ]);
+
+  const seleccionadoId=seleccionado?.id??null;
+  const debeCargarRegistros=Boolean(
+    esSuperAdmin&&
+    seleccionadoId&&
+    modo==="consultar"&&
+    gateway.consultarRegistros
+  );
+  const claveRegistrosActiva=`${seleccionadoId??""}|${modo}|${consultaRegistros.page??1}|${consultaRegistros.page_size??10}|${consultaRegistros.q??""}|${consultaRegistros.desde??""}|${consultaRegistros.hasta??""}`;
+  const cargandoRegistros=
+    debeCargarRegistros&&claveRegistrosResuelta!==claveRegistrosActiva;
+
+  useEffect(() => {
+    if(
+      !esSuperAdmin||
+      !seleccionadoId||
+      modo!=="consultar"||
+      !gateway.consultarRegistros
+    ) {
+      return;
+    }
+
+    let vigente=true;
+
+    gateway
+      .consultarRegistros(seleccionadoId,consultaRegistros)
+      .then((datos) => {
+        if(!vigente) return;
+        setRegistrosGlobales(datos);
+        setClaveRegistrosResuelta(claveRegistrosActiva);
+      })
+      .catch(() => {
+        if(!vigente) return;
+        setRegistrosGlobales(null);
+        setClaveRegistrosResuelta(claveRegistrosActiva);
       });
 
     return () => {
-      vigente = false;
+      vigente=false;
     };
-  }, [gateway, esSuperAdmin, intentoCarga]);
+  },[
+    esSuperAdmin,
+    gateway,
+    seleccionadoId,
+    modo,
+    consultaRegistros,
+    claveRegistrosActiva,
+  ]);
 
-  const recargar = useCallback(() => {
-    setEstadoCarga("cargando");
-    setIntentoCarga((valor) => valor + 1);
-  }, []);
+  const recargar=useCallback(() => {
+    setIntentoCarga((valor) => valor+1);
+  },[]);
 
-  const filtrados = useMemo(() => filtrar(albergues, filtros), [albergues, filtros]);
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ALBERGUES_POR_PAGINA));
-  const paginaActual = Math.min(pagina, totalPaginas);
-  const visibles = filtrados.slice(
-    (paginaActual - 1) * ALBERGUES_POR_PAGINA,
-    paginaActual * ALBERGUES_POR_PAGINA
-  );
-  const seleccionado = albergues.find((a) => a.id === seleccionadoId) ?? null;
-
-  function abrir(albergue: Albergue | null, siguienteModo: ModoPanel, confirmar = false) {
-    setSeleccionadoId(albergue?.id ?? seleccionadoId);
+  function abrir(
+    albergue: Albergue|null,
+    siguienteModo: ModoPanel,
+    confirmar=false
+  ) {
+    setSeleccionado(albergue);
     setModo(siguienteModo);
+    if(albergue&&siguienteModo==="consultar") {
+      setConsultaRegistros({ page: 1,page_size: 10 });
+    }
     setConfirmandoEstado(confirmar);
     setErrorEstado("");
     setAviso("");
-    enfocarPanel();
-  }
-
-  function reemplazar(actualizado: Albergue) {
-    setAlbergues((lista) => {
-      const existe = lista.some((a) => a.id === actualizado.id);
-      return existe
-        ? lista.map((a) => (a.id === actualizado.id ? actualizado : a))
-        : [actualizado, ...lista];
-    });
   }
 
   async function guardar(formulario: AlbergueFormulario) {
-    const entrada = formularioAEntrada(formulario);
+    const entrada=formularioAEntrada(formulario);
 
-    if (modo === "editar" && seleccionado) {
-      const actualizado = await gateway.actualizar(seleccionado.id, {
+    if(modo==="editar"&&seleccionado) {
+      const actualizado=await gateway.actualizar(seleccionado.id,{
         ...entrada,
         activo: seleccionado.activo,
       });
-      reemplazar(actualizado);
-      setAviso(`Los cambios de “${actualizado.nombre}” se guardaron correctamente.`);
+      setSeleccionado(actualizado);
+      setAviso(
+        `Los cambios de “${actualizado.nombre}” se guardaron correctamente.`
+      );
     } else {
-      const creado = await gateway.crear(entrada);
-      reemplazar(creado);
-      setSeleccionadoId(creado.id);
+      const creado=await gateway.crear(entrada);
+      setSeleccionado(creado);
       setFiltros(FILTROS_INICIALES);
       setPagina(1);
       setAviso(`El albergue “${creado.nombre}” se registró correctamente.`);
     }
 
     setModo("consultar");
+    recargar();
   }
 
   async function cambiarEstado(albergue: Albergue) {
@@ -262,19 +391,23 @@ export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesion
     setErrorEstado("");
 
     try {
-      const actualizado = await gateway.cambiarEstado(albergue.id, !albergue.activo);
-      reemplazar(actualizado);
+      const actualizado=await gateway.cambiarEstado(
+        albergue.id,
+        !albergue.activo
+      );
+      setSeleccionado(actualizado);
       setConfirmandoEstado(false);
       setAviso(
         actualizado.activo
           ? `“${actualizado.nombre}” fue reactivado.`
-          : `“${actualizado.nombre}” fue desactivado. Sus datos históricos siguen disponibles.`
+          :`“${actualizado.nombre}” fue desactivado. Sus datos históricos siguen disponibles.`
       );
-    } catch (error) {
+      recargar();
+    } catch(error) {
       setErrorEstado(
         error instanceof AlberguesError
           ? error.message
-          : "No fue posible cambiar el estado. Inténtalo nuevamente."
+          :"No fue posible cambiar el estado. Inténtalo nuevamente."
       );
     } finally {
       setCambiandoEstado(false);
@@ -286,120 +419,132 @@ export function GestionAlberguesPage({ gateway: gatewayInyectado, sesion: sesion
     setPagina(1);
   }
 
-  if (sesion === undefined) {
+  function cambiarTamanoPagina(nuevoTamano: number) {
+    setPageSize(nuevoTamano);
+    setPagina(1);
+  }
+
+  if(sesion===undefined) {
     return (
-      <output className="block p-8 text-center text-[13px] text-[#53636B]">
+      <output className="block p-8 text-center text-xs text-[#53636B]">
         Verificando sesión…
       </output>
     );
   }
 
+  const totalRegistrados=
+    resumenGlobal?.totalRegistrados??paginaDatos.total;
+  const totalActivos=
+    resumenGlobal?.totalActivos??
+    paginaDatos.items.filter((a) => a.activo).length;
+
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
+      <header className="flex flex-col gap-4 border-b border-[#DCE6EA] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-medium text-[#172126] sm:text-[28px]">Gestión de albergues</h1>
-          <p className="mt-1 text-[13px] text-[#53636B]">
-            Registro y administración de centros habilitados
-          </p>
+          <h1 className="text-2xl font-bold text-[#164652]">
+            Gestión de albergues
+          </h1>
         </div>
 
-        {esSuperAdmin && (
+        {esSuperAdmin&&(
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => abrir(null, "registrar")}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#00C3D0] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#00AEB9]"
+              onClick={() => abrir(null,"registrar")}
+              className="inline-flex h-10 items-center gap-2 bg-[#008994] px-4 text-xs font-semibold text-white transition hover:bg-[#00747E]"
             >
               <Plus size={16} aria-hidden="true" />
               Registrar albergue
             </button>
 
-            {ultimaActualizacion && (
+            {ultimaActualizacion&&(
               <button
                 type="button"
                 onClick={recargar}
-                className="flex items-center gap-2 rounded-lg px-2 py-1 text-left transition hover:bg-white"
+                className="flex items-center gap-2 border border-[#DCE6EA] bg-white px-3 py-2 text-left text-xs font-semibold text-[#164652] transition hover:bg-[#F4F8FA]"
                 aria-label={`Actualizar listado. Última actualización hoy a las ${ultimaActualizacion}`}
               >
-                <RefreshCw size={15} aria-hidden="true" className="text-[#53636B]" />
-                <span>
-                  <span className="block text-[9px] uppercase tracking-wide text-[#829198]">Última actualización</span>
-                  <span className="block text-[11px] font-semibold text-[#172126]">Hoy, {ultimaActualizacion}</span>
-                </span>
+                <RefreshCw
+                  size={14}
+                  aria-hidden="true"
+                  className="text-[#008994]"
+                />
+                <span>Hoy, {ultimaActualizacion}</span>
               </button>
             )}
           </div>
         )}
       </header>
 
-      {sesion.demostracion && esSuperAdmin && (
-        <p className="mt-4 rounded-lg bg-[#FFF7E4] px-3 py-2 text-[12px] text-[#7A5300]">
-          Modo demostración: se muestran datos de prueba porque la API de albergues aún no está configurada
-          (<code>NEXT_PUBLIC_API_URL</code>).
-        </p>
-      )}
-
-      {esSuperAdmin ? (
+      {esSuperAdmin? (
         <>
-          {aviso && (
-            <output className="mt-4 flex items-start gap-2 rounded-lg bg-[#E9F7F0] px-3 py-2.5 text-[13px] text-[#15784E]">
-              <CheckCircle2 size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          {aviso&&(
+            <output className="flex items-start gap-2 border-l-4 border-[#168052] bg-[#E8F7F0] px-3 py-2.5 text-xs text-[#168052]">
+              <CheckCircle2
+                size={16}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
               <span className="flex-1">{aviso}</span>
-              <button type="button" aria-label="Cerrar aviso" onClick={() => setAviso("")}>
+              <button
+                type="button"
+                aria-label="Cerrar aviso"
+                onClick={() => setAviso("")}
+              >
                 <X size={15} aria-hidden="true" />
               </button>
             </output>
           )}
 
-          {estadoCarga === "listo" && albergues.length > 0 && (
-            <div className="mt-5">
-              <Resumen albergues={albergues} />
-            </div>
-          )}
+          {resumenGlobal&&<ResumenGlobal resumen={resumenGlobal} />}
 
-          <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_384px]">
-            <AlberguesLista
-              estadoCarga={estadoCarga}
-              mensajeError={mensajeError}
-              totalRegistrados={albergues.length}
-              totalActivos={albergues.filter((a) => a.activo).length}
-              albergues={visibles}
-              totalFiltrados={filtrados.length}
-              pagina={paginaActual}
-              totalPaginas={totalPaginas}
-              porPagina={ALBERGUES_POR_PAGINA}
-              filtros={filtros}
-              seleccionadoId={seleccionadoId}
-              puedeAdministrar={esSuperAdmin}
-              onFiltrosChange={cambiarFiltros}
-              onPaginaChange={setPagina}
-              onConsultar={(a) => abrir(a, "consultar")}
-              onEditar={(a) => abrir(a, "editar")}
-              onCambiarEstado={(a) => abrir(a, "consultar", true)}
-              onReintentar={recargar}
-              onRegistrar={() => abrir(null, "registrar")}
-            />
+          <AlberguePanel
+            modo={modo}
+            albergue={seleccionado}
+            registrosGlobales={registrosGlobales}
+            cargandoRegistros={cargandoRegistros}
+            consultaRegistros={consultaRegistros}
+            onConsultaRegistrosChange={setConsultaRegistros}
+            puedeAdministrar={esSuperAdmin}
+            confirmandoEstado={confirmandoEstado}
+            cambiandoEstado={cambiandoEstado}
+            errorEstado={errorEstado}
+            onModoChange={(m) => abrir(seleccionado,m)}
+            onGuardar={guardar}
+            onCancelar={() => {
+              if(modo==="registrar"||modo==="consultar") {
+                setSeleccionado(null);
+              }
+              setModo("consultar");
+            }}
+            onConfirmandoEstadoChange={(valor) => {
+              setConfirmandoEstado(valor);
+              setErrorEstado("");
+            }}
+            onCambiarEstado={cambiarEstado}
+          />
 
-            <AlberguePanel
-              modo={modo}
-              albergue={seleccionado}
-              puedeAdministrar={esSuperAdmin}
-              confirmandoEstado={confirmandoEstado}
-              cambiandoEstado={cambiandoEstado}
-              errorEstado={errorEstado}
-              onModoChange={(m) => abrir(null, m)}
-              onGuardar={guardar}
-              onCancelar={() => setModo("consultar")}
-              onConfirmandoEstadoChange={(valor) => {
-                setConfirmandoEstado(valor);
-                setErrorEstado("");
-              }}
-              onCambiarEstado={cambiarEstado}
-            />
-          </div>
+          <AlberguesLista
+            estadoCarga={estadoCargaEfectivo}
+            mensajeError={mensajeError}
+            totalRegistrados={totalRegistrados}
+            totalActivos={totalActivos}
+            pagina={paginaDatos}
+            filtros={filtros}
+            seleccionadoId={seleccionadoId}
+            puedeAdministrar={esSuperAdmin}
+            onFiltrosChange={cambiarFiltros}
+            onPaginaChange={setPagina}
+            onPageSizeChange={cambiarTamanoPagina}
+            onConsultar={(a) => abrir(a,"consultar")}
+            onEditar={(a) => abrir(a,"editar")}
+            onCambiarEstado={(a) => abrir(a,"consultar",true)}
+            onReintentar={recargar}
+            onRegistrar={() => abrir(null,"registrar")}
+          />
         </>
-      ) : (
+      ):(
         <AccesoRestringido />
       )}
     </div>
