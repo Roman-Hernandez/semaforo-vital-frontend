@@ -36,13 +36,12 @@ const fechaEnMs = (fecha: string) => Date.parse(`${fecha.slice(0, 10)}T00:00:00Z
 
 function formatearNumero(valor: number | null | undefined): string {
   if (valor == null || !Number.isFinite(valor)) return "Sin dato";
-  return valor.toLocaleString("es-CO", { maximumFractionDigits: 2 });
+  return valor.toLocaleString("es-CO", { maximumFractionDigits: 0 });
 }
 
-function fechaCorta(fecha: string): string {
-  const [anio, mes, dia] = fecha.split("-");
-  return `${dia}/${mes}/${anio.slice(2)}`;
-}
+const fechaEje = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", timeZone: "UTC" });
+const fechaCorta = (fecha: string) => fechaEje.format(fechaEnMs(fecha)).replace(" de ", " ");
+const fechaCompleta = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 function combinarFechas(observado: readonly SIRObservation[], proyeccion: readonly SIRProjectedDay[]): PuntoFecha[] {
   const fechas = new Map<string, PuntoFecha>();
@@ -89,8 +88,9 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
 
   const primeraFecha = fechas[0].fecha;
   const ultimaFecha = fechas.at(-1)!.fecha;
-  const dias = Math.max(1, (fechaEnMs(ultimaFecha) - fechaEnMs(primeraFecha)) / DIA_MS);
-  const x = (fecha: string) => 70 + ((fechaEnMs(fecha) - fechaEnMs(primeraFecha)) / DIA_MS / dias) * 650;
+  const inicioMs = fechaEnMs(primeraFecha);
+  const dias = (fechaEnMs(ultimaFecha) - inicioMs) / DIA_MS;
+  const x = (fecha: string) => 70 + ((fechaEnMs(fecha) - inicioMs) / DIA_MS / Math.max(1, dias)) * 650;
   const visibles = SERIES.filter((serie) => !soloInfectados || serie.clave === "infectados");
   const valores = fechas.flatMap((punto) => visibles.flatMap(({ clave }) => [punto.observado?.[clave], punto.proyectado?.[clave]]))
     .filter((valor): valor is number => valor != null && Number.isFinite(valor));
@@ -101,7 +101,11 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
   const inicioProyeccion = fechas.find((punto) => punto.proyectado)?.fecha;
   const seleccion = fechas.find((punto) => punto.fecha === fechaActiva)
     ?? fechas.findLast((punto) => punto.observado) ?? fechas[0];
-  const etiquetas = fechas.filter((_, indice) => indice % Math.max(1, Math.ceil((fechas.length - 1) / 4)) === 0 || indice === fechas.length - 1);
+  const intervalos = Math.min(dias, 12);
+  const marcas = Array.from({ length: intervalos + 1 }, (_, indice) => {
+    const dia = Math.round(indice * dias / Math.max(1, intervalos));
+    return new Date(inicioMs + dia * DIA_MS).toISOString().slice(0, 10);
+  });
 
   return (
     <figure aria-labelledby={`${id}-titulo`} className="border-t-2 border-[#008994] bg-white p-4 shadow-xs sm:p-5">
@@ -115,14 +119,16 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
             className="border border-[#DCE6EA] px-3 py-1.5 text-xs font-semibold text-[#164652] aria-pressed:bg-[#E6F9FA] focus-visible:outline-2 focus-visible:outline-[#008994]">Solo infectados</button>
         </fieldset>
       </div>
-      <p className="text-xs text-[#53636B]">Línea continua y puntos: observado. Línea discontinua y fondo sombreado: proyección RK4.</p>
+      <p className="text-xs text-[#53636B]">Línea continua y puntos: observado. Línea discontinua y fondo sombreado: proyección RK4. Los conteos proyectados se muestran redondeados.</p>
       <p className="mt-1 text-xs text-[#53636B]">La distancia entre fechas representa días reales. Los datos desconocidos interrumpen la línea.</p>
-      <div className="mt-3 overflow-x-auto">
+      <div role="region" aria-label="Gráfico con desplazamiento horizontal" tabIndex={0}
+        className="mt-3 overflow-x-auto focus-visible:outline-2 focus-visible:outline-[#008994]">
         <svg viewBox="0 0 760 285" role="img" aria-labelledby={`${id}-titulo ${id}-descripcion`}
-          className="h-auto w-full min-w-[620px] select-none">
+          className="h-auto w-full min-w-[760px] select-none">
           <title>{titulo}</title>
           <desc id={`${id}-descripcion`}>Eje horizontal: fechas. Eje vertical: personas. Use el selector de fecha para consultar los valores observados y estimados.</desc>
           {inicioProyeccion && <rect x={x(inicioProyeccion)} y="28" width={720 - x(inicioProyeccion)} height="202" fill="#E6F9FA" opacity="0.65" />}
+          {marcas.map((fecha) => <line key={fecha} x1={x(fecha)} x2={x(fecha)} y1="35" y2="236" stroke="#DCE6EA" />)}
           {[0, 1, 2, 3, 4].map((indice) => <g key={indice}>
             <line x1="70" y1={y(pasoEje * indice)} x2="720" y2={y(pasoEje * indice)} stroke="#DCE6EA" />
             <text x="62" y={y(pasoEje * indice) + 4} textAnchor="end" fontSize="11" fill="#53636B">{formatearNumero(pasoEje * indice)}</text>
@@ -130,10 +136,16 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
           <text x="70" y="16" fontSize="11" fill="#53636B">Personas</text>
           {inicioProyeccion && <g>
             <line x1={x(inicioProyeccion)} y1="28" x2={x(inicioProyeccion)} y2="230" stroke="#008994" strokeDasharray="4 4" />
-            <text x={Math.min(714, x(inicioProyeccion) + 6)} y="24" textAnchor={x(inicioProyeccion) > 500 ? "end" : "start"} fontSize="10" fill="#047270">Inicio proyección ({fechaCorta(inicioProyeccion)})</text>
+            <text x={Math.min(714, x(inicioProyeccion) + 6)} y="24" textAnchor={x(inicioProyeccion) > 500 ? "end" : "start"} fontSize="11" fontWeight="600" fill="#047270">Inicio de la proyección · {fechaCorta(inicioProyeccion)}</text>
           </g>}
-          {etiquetas.map((punto) => <text key={punto.fecha} x={x(punto.fecha)} y="252" textAnchor="middle" fontSize="11" fill="#53636B">{fechaCorta(punto.fecha)}</text>)}
-          <text x="395" y="274" textAnchor="middle" fontSize="11" fill="#53636B">Fecha · observado y horizonte proyectado</text>
+          {marcas.map((fecha) => (
+            <text key={fecha} data-fecha-eje={fecha} x={x(fecha)} y="252" textAnchor="middle" fontSize="11" fill="#375257">
+              {fechaCorta(fecha)}
+            </text>
+          ))}
+          <text x="395" y="274" textAnchor="middle" fontSize="11" fill="#53636B">
+            {fechaCompleta.format(fechaEnMs(primeraFecha))}{dias > 0 && ` – ${fechaCompleta.format(fechaEnMs(ultimaFecha))}`}
+          </text>
           {visibles.map((serie) => {
             const obs = construirSerie(fechas, "observado", serie.clave, x, y);
             const proy = construirSerie(fechas, "proyectado", serie.clave, x, y);
@@ -150,7 +162,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
           {fechas.map((punto) => <rect key={punto.fecha} x={Math.max(70, x(punto.fecha) - 6)} y="28" width="12" height="202" fill="transparent" onMouseEnter={() => setFechaActiva(punto.fecha)} />)}
         </svg>
       </div>
-      <p className="mt-1 text-xs text-[#53636B] sm:hidden">Desliza horizontalmente para ver toda la gráfica.</p>
+      <p className="mt-1 text-xs text-[#53636B] min-[850px]:hidden">Desliza horizontalmente para ver toda la gráfica.</p>
       <ul className="mt-3 flex flex-wrap gap-4 border-t border-[#EEF2F4] pt-3 text-xs text-[#375257]">
         {visibles.map((serie) => <li key={serie.clave} className="flex items-center gap-2">
           <span aria-hidden="true" className="inline-block h-1 w-5" style={{ backgroundColor: serie.color }} />{serie.nombre}
@@ -159,7 +171,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#164652]">
         <label htmlFor={`${id}-fecha`} className="font-semibold">Fecha para inspeccionar</label>
         <select id={`${id}-fecha`} value={seleccion.fecha} onChange={(event) => setFechaActiva(event.target.value)} className="border border-[#DCE6EA] bg-white px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-[#008994]">
-          {fechas.map((punto) => <option key={punto.fecha} value={punto.fecha}>{punto.fecha}</option>)}
+          {fechas.map((punto) => <option key={punto.fecha} value={punto.fecha}>{fechaCompleta.format(fechaEnMs(punto.fecha))}</option>)}
         </select>
       </div>
       <div aria-live="polite" className="mt-2 flex flex-wrap gap-3 bg-[#F4F8FA] px-3 py-2 text-xs text-[#164652]">

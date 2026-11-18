@@ -53,6 +53,7 @@ export interface SIRDiseaseResult {
   readonly datos_faltantes: readonly string[];
   readonly observado: readonly SIRObservation[];
   readonly proyeccion: readonly SIRProjectedDay[];
+  readonly parametros_referencia?: { readonly beta: number; readonly gamma: number } | null;
   readonly parametros_estimados: EstimatedSIR | null;
   readonly resumen: SIRForecastSummary | null;
 }

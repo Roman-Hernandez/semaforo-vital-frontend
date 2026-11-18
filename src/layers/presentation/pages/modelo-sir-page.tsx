@@ -1,15 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect,useRef,useState,type SyntheticEvent } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Info,
-  RefreshCw,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { useId, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import {
   sirGateway,
   type EstadoSIR,
@@ -17,11 +10,6 @@ import {
   type SIRGateway,
   type SIRResult,
 } from "@/layers/application/services/sir-service";
-import {
-  TAMANO_PAGINA_PREDETERMINADO,
-} from "@/layers/application/services/paginacion";
-import { ControlesPaginacion } from "@/components/shared/ControlesPaginacion";
-import { SkeletonBloque,SkeletonMetricas } from "@/components/shared/Skeleton";
 import { SIRChart } from "@/layers/presentation/components/sir/sir-chart";
 
 export interface ModeloSIRPageProps {
@@ -33,7 +21,7 @@ const ETIQUETAS_ESTADO_SIR: Record<
   { texto: string; clase: string }
 >={
   estimacion_disponible: {
-    texto: "Estimación disponible",
+    texto: "Simulación disponible",
     clase: "bg-[#E2F5EB] text-[#146C43]",
   },
   datos_insuficientes: {
@@ -50,30 +38,9 @@ const ETIQUETAS_ESTADO_SIR: Record<
   },
 };
 
-const DESCRIPCION_FALTANTES: Record<string,string>={
-  poblacion_actual:
-    "Falta registrar el conteo de población vigente del albergue.",
-  casos_enfermedades:
-    "No hay reportes de enfermedades en la ventana reciente de observación.",
-  cantidad_recuperados:
-    "Falta informar la cantidad de personas recuperadas observadas en los reportes de la enfermedad.",
-  poblacion_historica:
-    "Existen fechas de casos sin un registro de población vigente para ese día.",
-  historial_minimo_4_fechas:
-    "Se requieren al menos 4 fechas distintas de seguimiento para ajustar las tasas β y γ.",
-  casos_recientes:
-    "El último reporte de casos tiene más de 7 días de antigüedad.",
-  casos_con_poblacion_actual:
-    "La población del albergue cambió después del último reporte de casos.",
-  poblacion_reciente:
-    "El registro de población tiene más de 7 días de antigüedad.",
-  serie_para_estimacion:
-    "La serie observada requiere fechas con separación máxima de 3 días y recuperaciones observadas.",
-};
-
 function formatearDecimal(
   valor: number|null|undefined,
-  maxDecimales=2
+  maxDecimales: number
 ): string {
   if(valor===null||valor===undefined||!Number.isFinite(valor)) {
     return "Sin dato";
@@ -86,7 +53,7 @@ function formatearDecimal(
 
 function formatearFechaHora(iso: string|null|undefined): string {
   if(!iso) return "Sin fecha registrada";
-  return iso.slice(0,10);
+  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date(iso));
 }
 
 function BadgeEstadoSIR({ estado }: { readonly estado: EstadoSIR }) {
@@ -105,7 +72,7 @@ function TarjetaEnfermedadSIR({
 }: {
   readonly item: SIRDiseaseResult;
 }) {
-  const { resumen,parametros_estimados: params }=item;
+  const { resumen,parametros_referencia: params }=item;
 
   function claseEstadoEnfermedad() {
     if(item.estado==="datos_incompatibles") { return "border-[#C53030] bg-[#FDF4F4] text-[#7A1C20]"; }
@@ -145,19 +112,6 @@ function TarjetaEnfermedadSIR({
             </ul>
           )}
 
-          {item.datos_faltantes.length>0&&(
-            <div className="space-y-1.5 pt-1">
-              <p className="font-bold">Requerimientos pendientes:</p>
-              <ul className="list-disc space-y-1 pl-4">
-                {item.datos_faltantes.map((codigo) => (
-                  <li key={codigo}>
-                    {DESCRIPCION_FALTANTES[codigo]??codigo}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {item.estado==="datos_insuficientes"&&(
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
@@ -185,7 +139,7 @@ function TarjetaEnfermedadSIR({
               Máximo de infectados en el horizonte
             </dt>
             <dd className="mt-1 text-xl font-bold text-[#164652]">
-              {formatearDecimal(resumen.pico_infectados_en_horizonte)} personas
+              ≈ {formatearDecimal(resumen.pico_infectados_en_horizonte,0)} personas
             </dd>
             <p className="mt-1 text-[11px] text-[#718895]">
               Fecha en horizonte: {resumen.fecha_pico_en_horizonte.slice(0,10)}{" "}
@@ -198,10 +152,10 @@ function TarjetaEnfermedadSIR({
               Infectados al cierre del horizonte
             </dt>
             <dd className="mt-1 text-xl font-bold text-[#164652]">
-              {formatearDecimal(resumen.infectados_finales)} personas
+              ≈ {formatearDecimal(resumen.infectados_finales,0)} personas
             </dd>
             <p className="mt-1 text-[11px] text-[#718895]">
-              Estimación continua al último día proyectado
+              Estimación redondeada al último día proyectado
             </p>
           </div>
 
@@ -210,7 +164,7 @@ function TarjetaEnfermedadSIR({
               Recuperados al cierre del horizonte
             </dt>
             <dd className="mt-1 text-xl font-bold text-[#164652]">
-              {formatearDecimal(resumen.recuperados_finales)} personas
+              ≈ {formatearDecimal(resumen.recuperados_finales,0)} personas
             </dd>
             <p className="mt-1 text-[11px] text-[#718895]">
               Acumulado estimado en la población actual
@@ -242,11 +196,11 @@ function TarjetaEnfermedadSIR({
         />
       )}
 
-      {/* Parámetros estimados por el servidor (solo lectura) */}
+      {/* Parámetros de referencia aplicados por el servidor */}
       {params&&(
         <div className="bg-[#F8FAFB] p-4 text-xs text-[#164652]">
           <h4 className="font-bold text-[#164652]">
-            Parámetros estimados automáticamente (solo lectura)
+            Tasas de referencia de estudios de norovirus
           </h4>
           <dl className="mt-2.5 grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div>
@@ -256,20 +210,10 @@ function TarjetaEnfermedadSIR({
               </dd>
             </div>
             <div>
-              <dt className="text-[#53636B]">Tasa de recuperación (γ)</dt>
+              <dt className="text-[#53636B]">Salida de la fase infecciosa (γ)</dt>
               <dd className="mt-0.5 font-bold">
                 {formatearDecimal(params.gamma,4)} / día
               </dd>
-            </div>
-            <div>
-              <dt className="text-[#53636B]">Error de ajuste (RMSE I)</dt>
-              <dd className="mt-0.5 font-bold">
-                {formatearDecimal(params.error_ajuste_infectados,4)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[#53636B]">Intervalos utilizados</dt>
-              <dd className="mt-0.5 font-bold">{params.intervalos_utilizados}</dd>
             </div>
             {resumen&&(
               <div>
@@ -280,8 +224,9 @@ function TarjetaEnfermedadSIR({
               </div>
             )}
           </dl>
-          <p className="mt-2 text-[11px] text-[#53636B]">
-            Método de ajuste: {params.metodo}
+          <p className="mt-2 text-[#53636B]">
+            Fuentes de referencia. <a className="underline" href="https://pubmed.ncbi.nlm.nih.gov/32687043/">Estudio de brotes (2020)</a>
+            {" · "}<a className="underline" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13544057/#Tab2">Duración infecciosa (2026)</a>
           </p>
         </div>
       )}
@@ -360,376 +305,124 @@ function TarjetaEnfermedadSIR({
   );
 }
 
-export default function ModeloSIRPage({
-  gateway: gatewayInyectado,
-}: ModeloSIRPageProps={}) {
-  const [gateway]=useState<SIRGateway>(() => gatewayInyectado??sirGateway);
+const PESTANAS = ["Simulación", "Cómo funciona el SIR"] as const;
 
-  const [page,setPage]=useState(1);
-  const [pageSize,setPageSize]=useState<number>(TAMANO_PAGINA_PREDETERMINADO);
-  const [entradaEnfermedad,setEntradaEnfermedad]=useState("");
-  const [enfermedadFiltro,setEnfermedadFiltro]=useState("");
-  const [enfermedadSeleccionada,setEnfermedadSeleccionada]=
-    useState<string>("todas");
-  const [version,setVersion]=useState(0);
+function GuiaSIR() {
+  return (
+    <div className="space-y-6 border-t-2 border-[#008994] bg-white p-5 text-sm leading-relaxed text-[#53636B] sm:p-7">
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold text-[#164652]">Qué representa el SIR</h2>
+        <p>El modelo divide a la población del albergue en tres grupos y simula cómo cambian durante 14 días.</p>
+        <dl className="grid gap-3 sm:grid-cols-3">
+          <div><dt className="font-bold text-[#164652]">S · Susceptibles</dt><dd>Personas que pueden infectarse. Al inicio, se calculan restando casos activos y recuperados de la población.</dd></div>
+          <div><dt className="font-bold text-[#164652]">I · Infectados</dt><dd>Personas en la fase infecciosa del modelo. La corrida usa los casos activos registrados como aproximación inicial.</dd></div>
+          <div><dt className="font-bold text-[#164652]">R · Recuperados</dt><dd>Personas registradas como recuperadas al inicio y quienes salen de la fase infecciosa durante la corrida.</dd></div>
+        </dl>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold text-[#164652]">Tasas de referencia para el escenario de EDA</h2>
+        <p><strong>Transmisión (β) · 0,275 por día.</strong> Multiplicamos 2,75, la mediana del número reproductivo básico estimado en 7.094 brotes de norovirus, por la tasa de salida del escenario. <a className="underline" href="https://pubmed.ncbi.nlm.nih.gov/32687043/">Estudio de brotes (2020)</a>.</p>
+        <p><strong>Salida de la fase infecciosa (γ) · 0,100 por día.</strong> Usamos 1 dividido entre 10 días, la duración que un estudio de norovirus asignó a la fase de alta excreción viral. <a className="underline" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13544057/#Tab2">Estudio de duración (2026)</a>.</p>
+        <p>Usamos estas referencias para explorar un escenario con tasas publicadas o derivadas de estudios. La EDA puede tener distintas causas. Aquí el norovirus es un supuesto del escenario.</p>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-bold text-[#164652]">Cómo leer la simulación</h2>
+        <p>Al pulsar el botón, el servidor toma el último reporte de EDA y comprueba que corresponda a la población vigente. Usa esos conteos como punto de partida y mantiene fija la población durante la corrida. Si cambia la población, actualiza el reporte de EDA antes de volver a simular.</p>
+        <p>Los susceptibles pasan a infectados y los infectados pasan a recuperados. Si el R efectivo inicial es menor que 1, los casos activos empiezan a bajar. Dos curvas se cruzan solo si esos grupos alcanzan el mismo tamaño durante los 14 días.</p>
+        <p>Los puntos históricos son observaciones. Las líneas discontinuas muestran el escenario calculado con RK4. Los conteos proyectados se muestran redondeados a personas enteras y la curva conserva la precisión del cálculo.</p>
+      </section>
+    </div>
+  );
+}
 
-  const [datos,setDatos]=useState<SIRResult|null>(null);
-  const [claveResuelta,setClaveResuelta]=useState("");
-  const [error,setError]=useState("");
+export default function ModeloSIRPage({ gateway = sirGateway }: ModeloSIRPageProps = {}) {
+  const id = useId();
+  const [pestana, setPestana] = useState(0);
+  const [resultado, setResultado] = useState<SIRResult | null>(null);
+  const [ultimaCorrida, setUltimaCorrida] = useState<SIRResult | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
-  const claveActiva=`${page}|${pageSize}|${enfermedadFiltro}|${version}`;
-  const cargando=claveResuelta!==claveActiva;
-
-  const secuenciaRef=useRef(0);
-
-  useEffect(() => {
-    const idPeticion=++secuenciaRef.current;
-
-    gateway
-      .consultarResultados({
-        page,
-        page_size: pageSize,
-        enfermedad: enfermedadFiltro||undefined,
-      })
-      .then((res) => {
-        if(idPeticion!==secuenciaRef.current) return;
-        setDatos(res);
-        setEnfermedadSeleccionada("todas");
-        setError("");
-        setClaveResuelta(claveActiva);
-      })
-      .catch((err: unknown) => {
-        if(idPeticion!==secuenciaRef.current) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            :"No fue posible consultar los resultados del modelo SIR."
-        );
-        setClaveResuelta(claveActiva);
-      });
-  },[gateway,claveActiva,page,pageSize,enfermedadFiltro,version]);
-
-  function aplicarFiltroEnfermedad(e: SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPage(1);
-    setEnfermedadFiltro(entradaEnfermedad.trim());
+  async function simular() {
+    if (cargando || !gateway.simular) return;
+    setCargando(true);
+    setError("");
+    try {
+      const respuesta = await gateway.simular({ enfermedad: "Enfermedad diarreica aguda" });
+      setResultado(respuesta);
+      if (respuesta.resultados.items[0]?.proyeccion.length) setUltimaCorrida(respuesta);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No fue posible generar la simulación.");
+    } finally {
+      setCargando(false);
+    }
   }
 
-  function limpiarFiltroEnfermedad() {
-    setEntradaEnfermedad("");
-    setEnfermedadFiltro("");
-    setPage(1);
-  }
-
-  const itemsPagina=datos?.resultados.items??[];
-  const itemsVisibles=
-    enfermedadSeleccionada==="todas"
-      ? itemsPagina
-      :itemsPagina.filter((i) => i.enfermedad===enfermedadSeleccionada);
-
-  function renderizarResultados() {
-    if(error) {
-      return <div
-        role="alert"
-        className="border-l-4 border-[#C53030] bg-white p-5 text-sm text-[#C53030]"
-      >
-        <p className="font-semibold">{error}</p>
-        <button
-          type="button"
-          onClick={() => setVersion((v) => v+1)}
-          className="mt-3 border border-[#DCE6EA] bg-white px-4 py-1.5 text-xs font-semibold text-[#164652]"
-        >
-          Reintentar
-        </button>
-      </div>;
-    }
-    if(cargando&&!datos) {
-      return <div className="space-y-6">
-        <SkeletonMetricas
-          columnas={4}
-          etiqueta="Cargando estimaciones automáticas SIR…"
-        />
-        <SkeletonBloque filas={5} />
-      </div>;
-    }
-    if(datos) {
-      return <>
-        {/* Contexto operativo del albergue y parámetros de ventana */}
-        <section
-          aria-label="Contexto del modelo SIR"
-          className="border-t-2 border-[#008994] bg-white p-5 shadow-xs"
-        >
-          <dl className="grid grid-cols-1 divide-y divide-[#EEF2F4] sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-y-0">
-            <div className="py-2 pr-4 lg:py-0">
-              <dt className="text-xs text-[#53636B]">Albergue</dt>
-              <dd className="mt-1 text-sm font-bold text-[#164652]">
-                {datos.albergue_nombre}
-              </dd>
-            </div>
-
-            <div className="py-2 sm:pl-4 lg:px-4 lg:py-0">
-              <dt className="text-xs text-[#53636B]">
-                Población base registrada
-              </dt>
-              <dd className="mt-1 text-base font-bold text-[#164652]">
-                {datos.poblacion_actual===null
-                  ? "Sin registro"
-                  :`${datos.poblacion_actual.toLocaleString("es-CO")} personas`}
-              </dd>
-              <p className="text-[11px] text-[#718895]">
-                Fecha fuente: {formatearFechaHora(datos.fecha_poblacion)}
-              </p>
-            </div>
-
-            <div className="py-2 pr-4 lg:px-4 lg:py-0">
-              <dt className="text-xs text-[#53636B]">Ventana observada</dt>
-              <dd className="mt-1 text-base font-bold text-[#164652]">
-                {datos.ventana_datos_dias} días
-              </dd>
-              <p className="text-[11px] text-[#718895]">
-                Historial clínico evaluado
-              </p>
-            </div>
-
-            <div className="py-2 sm:pl-4 lg:px-4 lg:py-0">
-              <dt className="text-xs text-[#53636B]">
-                Horizonte y método numérico
-              </dt>
-              <dd className="mt-1 text-base font-bold text-[#164652]">
-                {datos.horizonte_dias} días · {datos.metodo_numerico}
-              </dd>
-              <p className="text-[11px] text-[#718895]">
-                Generado: {formatearFechaHora(datos.generado_en)}
-              </p>
-            </div>
-
-            <div className="py-2 lg:py-0 lg:pl-4">
-              <dt className="text-xs text-[#53636B]">
-                Enfermedades evaluadas
-              </dt>
-              <dd className="mt-1 text-base font-bold text-[#164652]">
-                {datos.resultados.total} en total
-              </dd>
-              <p className="text-[11px] text-[#718895]">
-                Mostrando {itemsPagina.length} en esta página
-              </p>
-            </div>
-          </dl>
-        </section>
-
-        {/* Barra de filtro por nombre exacto de enfermedad y selección dentro de la página */}
-        <section
-          aria-label="Filtro y selección de enfermedades"
-          className="flex flex-col justify-between gap-3 bg-white p-4 shadow-xs lg:flex-row lg:items-end"
-        >
-          <form
-            onSubmit={aplicarFiltroEnfermedad}
-            className="flex flex-wrap items-end gap-2.5"
-          >
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-[#53636B]">
-                Consultar enfermedad específica en servidor
-              </span>
-              <div className="relative">
-                <Search
-                  size={14}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#718895]"
-                />
-                <input
-                  type="search"
-                  aria-label="Filtrar por enfermedad"
-                  value={entradaEnfermedad}
-                  onChange={(e) => setEntradaEnfermedad(e.target.value)}
-                  placeholder="Nombre de la enfermedad…"
-                  maxLength={300}
-                  className="h-9 w-64 border border-[#DCE6EA] bg-white pr-3 pl-8 text-xs text-[#164652] outline-none focus:border-[#008994]"
-                />
-              </div>
-            </label>
-
-            <button
-              type="submit"
-              className="h-9 bg-[#008994] px-3.5 text-xs font-semibold text-white transition hover:bg-[#00747E]"
-            >
-              Filtrar
-            </button>
-
-            {enfermedadFiltro&&(
-              <button
-                type="button"
-                onClick={limpiarFiltroEnfermedad}
-                className="inline-flex h-9 items-center gap-1 border border-[#DCE6EA] bg-white px-3 text-xs font-semibold text-[#164652]"
-              >
-                <RotateCcw size={13} aria-hidden="true" />
-                <span>Ver todas</span>
-              </button>
-            )}
-          </form>
-
-          {itemsPagina.length>1&&(
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-[#53636B]">
-                Enfocar enfermedad de la página actual ({itemsPagina.length} de{" "}
-                {datos.resultados.total})
-              </span>
-              <select
-                aria-label="Seleccionar enfermedad de la página actual"
-                value={enfermedadSeleccionada}
-                onChange={(e) => setEnfermedadSeleccionada(e.target.value)}
-                className="h-9 border border-[#DCE6EA] bg-white px-3 text-xs font-semibold text-[#164652] outline-none focus:border-[#008994]"
-              >
-                <option value="todas">
-                  Mostrar las {itemsPagina.length} enfermedades de esta página
-                </option>
-                {itemsPagina.map((item) => (
-                  <option key={item.enfermedad} value={item.enfermedad}>
-                    {item.enfermedad} ({ETIQUETAS_ESTADO_SIR[item.estado].texto})
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </section>
-
-        {/* Estado vacío raíz cuando no hay enfermedades registradas */}
-        {itemsPagina.length===0? (
-          <section
-            aria-label="Sin enfermedades para estimar"
-            className="border-t-2 border-[#D48806] bg-white p-6 space-y-4"
-          >
-            <div className="flex items-start gap-3">
-              <AlertCircle
-                size={20}
-                aria-hidden="true"
-                className="mt-0.5 shrink-0 text-[#D48806]"
-              />
-              <div>
-                <h2 className="text-base font-bold text-[#164652]">
-                  No se encontraron enfermedades con registros en la ventana de{" "}
-                  {datos.ventana_datos_dias} días
-                </h2>
-                <p className="mt-1 text-xs text-[#53636B]">
-                  El modelo SIR se calcula automáticamente cuando existen
-                  reportes recientes de población, casos activos y recuperados.
-                </p>
-              </div>
-            </div>
-
-            {datos.datos_faltantes.length>0&&(
-              <div className="bg-[#FFFBEB] p-4 text-xs text-[#784900]">
-                <p className="font-bold">Datos faltantes en el albergue:</p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-4">
-                  {datos.datos_faltantes.map((codigo) => (
-                    <li key={codigo}>
-                      {DESCRIPCION_FALTANTES[codigo]??codigo}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/albergue/poblacion"
-                className="border border-[#164652] bg-white px-4 py-2 text-xs font-semibold text-[#164652] transition hover:bg-[#F4F8FA]"
-              >
-                Ir a registro de población
-              </Link>
-              <Link
-                href="/albergue/enfermedades"
-                className="bg-[#008994] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#00747E]"
-              >
-                Ir a registro de enfermedades y recuperados
-              </Link>
-            </div>
-          </section>
-        ):(
-          <section
-            aria-label="Resultados por enfermedad"
-            className="space-y-6"
-          >
-            {itemsVisibles.map((item) => (
-              <TarjetaEnfermedadSIR key={item.enfermedad} item={item} />
-            ))}
-
-            <div className="bg-white shadow-xs">
-              <ControlesPaginacion
-                pagina={datos.resultados}
-                etiquetaItems="enfermedades"
-                cargando={cargando}
-                onPageChange={setPage}
-                onPageSizeChange={(tam) => {
-                  setPageSize(tam);
-                  setPage(1);
-                }}
-                ariaLabel="Paginación de enfermedades SIR"
-              />
-            </div>
-          </section>
-        )}
-
-        {/* Supuestos metodológicos devueltos por el backend */}
-        {datos.supuestos.length>0&&(
-          <section
-            aria-label="Supuestos metodológicos del modelo"
-            className="bg-white p-5 text-xs text-[#53636B] shadow-xs"
-          >
-            <div className="flex items-center gap-2 font-bold text-[#164652]">
-              <Info size={15} aria-hidden="true" className="text-[#008994]" />
-              <h2>Supuestos y alcance del modelo SIR automático</h2>
-            </div>
-            <ul className="mt-2.5 space-y-1.5 pl-5 list-disc">
-              {datos.supuestos.map((supuesto) => (
-                <li key={supuesto}>
-                  <span className="inline-flex items-center gap-1">
-                    <CheckCircle2
-                      size={12}
-                      aria-hidden="true"
-                      className=" hidden"
-                    />
-                    {supuesto}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </>;
-    }
-    return null;
-  }
+  const item = resultado?.resultados.items[0];
+  const corrida = ultimaCorrida?.resultados.items[0];
+  const reporte = corrida?.observado.at(-1);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 text-[#164652]">
-      <header className="flex flex-col justify-between gap-4 border-b border-[#DCE6EA] pb-4 sm:flex-row sm:items-center">
+      <header className="flex flex-col gap-4 border-b border-[#DCE6EA] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#164652]">
-            Laboratorio SIR automático
-          </h1>
-          <p className="mt-1 text-xs text-[#53636B]">
-            Estimación determinista automática a partir del historial de
-            población y casos registrados en el albergue, sin validación clínica
-            ni carácter de recomendación médica.
+          <h1 className="text-2xl font-bold">EDA · Simulación SIR</h1>
+          <p className="mt-1 max-w-xl text-sm text-[#53636B]">
+            Escenario ilustrativo de enfermedad diarreica aguda. Usa el último reporte como punto de partida y mantiene fija la población durante la corrida.
           </p>
         </div>
-
-        <button
-          type="button"
-          disabled={cargando}
-          onClick={() => setVersion((v) => v+1)}
-          className="inline-flex items-center gap-2 self-start border border-[#DCE6EA] bg-white px-4 py-2 text-xs font-semibold text-[#164652] transition hover:bg-[#F4F8FA] disabled:opacity-50 sm:self-auto"
-        >
-          <RefreshCw
-            size={14}
-            aria-hidden="true"
-            className={cargando? "animate-spin":""}
-          />
-          <span>{cargando? "Actualizando…":"Actualizar resultados"}</span>
-        </button>
       </header>
 
-      {renderizarResultados()}
+      <div role="tablist" aria-label="Laboratorio SIR" className="flex flex-wrap gap-2 border-b border-[#DCE6EA]">
+        {PESTANAS.map((nombre, indice) => (
+          <button key={nombre} type="button" role="tab" id={`${id}-tab-${indice}`}
+            aria-controls={`${id}-panel-${indice}`} aria-selected={pestana === indice}
+            tabIndex={pestana === indice ? 0 : -1} onClick={() => setPestana(indice)}
+            onKeyDown={(evento) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
+              evento.preventDefault();
+              const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? 1 : 1 - indice;
+              setPestana(siguiente);
+              document.getElementById(`${id}-tab-${siguiente}`)?.focus();
+            }}
+            className="border-b-2 border-transparent px-3 py-2 text-sm font-semibold aria-selected:border-[#008994] aria-selected:bg-[#E6F9FA]">
+            {nombre}
+          </button>
+        ))}
+      </div>
+
+      <section role="tabpanel" id={`${id}-panel-0`} aria-labelledby={`${id}-tab-0`}
+        hidden={pestana !== 0} className="space-y-6">
+        <button type="button" disabled={cargando} onClick={simular}
+          className="bg-[#00747E] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          <RefreshCw size={16} aria-hidden="true" className="mr-2 inline" />
+          Simular 14 días
+        </button>
+
+        {cargando && <p role="status">Consultando registros y simulando…</p>}
+        {error && <p role="alert" className="text-[#B02A30]">{error}</p>}
+        {resultado && !item && (
+          <p role="status">
+            No hay reportes recientes de EDA.{" "}
+            <Link className="underline" href="/albergue/enfermedades">Ir al registro de enfermedades</Link>
+          </p>
+        )}
+        {item && !item.proyeccion.length && <TarjetaEnfermedadSIR item={item} />}
+        {ultimaCorrida && corrida && (
+          <>
+            <section aria-label="Datos de la corrida" className="bg-white p-4 text-sm">
+              <p>Última simulación · {formatearFechaHora(ultimaCorrida.generado_en)}</p>
+              <p>Reporte de EDA de la corrida · {reporte?.fecha}</p>
+              <p>Población de la corrida · {reporte?.poblacion}</p>
+            </section>
+            <TarjetaEnfermedadSIR key={ultimaCorrida.generado_en} item={corrida} />
+          </>
+        )}
+      </section>
+      <section role="tabpanel" id={`${id}-panel-1`} aria-labelledby={`${id}-tab-1`}
+        hidden={pestana !== 1} tabIndex={0}>
+        <GuiaSIR />
+      </section>
     </div>
   );
 }
