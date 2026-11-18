@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type {
   SIRObservation,
   SIRProjectedDay,
@@ -12,375 +12,162 @@ export interface SIRChartProps {
   readonly proyeccion: readonly SIRProjectedDay[];
 }
 
+type Variable = "susceptibles" | "infectados" | "recuperados";
+type ValorSIR = Pick<SIRObservation, Variable>;
 interface PuntoFecha {
   readonly fecha: string;
-  readonly indice: number;
-  readonly obs?: SIRObservation;
-  readonly proy?: SIRProjectedDay;
+  readonly observado?: SIRObservation;
+  readonly proyectado?: SIRProjectedDay;
+}
+interface PuntoSerie {
+  readonly x: number;
+  readonly y: number;
+  readonly fecha: string;
+  readonly valor: number;
 }
 
-const COLORES={
-  susceptibles: "#1d4ed8",
-  infectados: "#c53030",
-  recuperados: "#15803d",
-} as const;
+const SERIES = [
+  { clave: "susceptibles", nombre: "Susceptibles (S)", color: "#1d4ed8" },
+  { clave: "infectados", nombre: "Infectados activos (I)", color: "#c53030" },
+  { clave: "recuperados", nombre: "Recuperados (R)", color: "#15803d" },
+] as const;
+const DIA_MS = 86_400_000;
+const fechaEnMs = (fecha: string) => Date.parse(`${fecha.slice(0, 10)}T00:00:00Z`);
 
-function formatearNumero(valor: number|null|undefined): string {
-  if(valor===null||valor===undefined||!Number.isFinite(valor)) {
-    return "Sin dato";
-  }
-  return valor.toLocaleString("es-CO",{ maximumFractionDigits: 2 });
+function formatearNumero(valor: number | null | undefined): string {
+  if (valor == null || !Number.isFinite(valor)) return "Sin dato";
+  return valor.toLocaleString("es-CO", { maximumFractionDigits: 2 });
 }
 
-function formatearFechaCorta(iso: string): string {
-  const limpia=iso.slice(0,10);
-  const partes=limpia.split("-");
-  if(partes.length!==3) return limpia;
-  return `${partes[2]}/${partes[1]}`;
+function fechaCorta(fecha: string): string {
+  const [anio, mes, dia] = fecha.split("-");
+  return `${dia}/${mes}/${anio.slice(2)}`;
 }
 
-export function SIRChart({ titulo,observado,proyeccion }: SIRChartProps) {
-  const [indiceActivo,setIndiceActivo]=useState<number|null>(null);
-
-  // Construye el eje de fechas únicamente con las fechas entregadas por el API
-  const mapaFechas=new Map<
-    string,
-    { obs?: SIRObservation; proy?: SIRProjectedDay }
-  >();
-
-  for(const o of observado) {
-    const f=o.fecha.slice(0,10);
-    mapaFechas.set(f,{ ...mapaFechas.get(f),obs: o });
+function combinarFechas(observado: readonly SIRObservation[], proyeccion: readonly SIRProjectedDay[]): PuntoFecha[] {
+  const fechas = new Map<string, PuntoFecha>();
+  for (const dato of observado) {
+    const fecha = dato.fecha.slice(0, 10);
+    fechas.set(fecha, { ...fechas.get(fecha), fecha, observado: dato });
   }
-  for(const p of proyeccion) {
-    const f=p.fecha.slice(0,10);
-    mapaFechas.set(f,{ ...mapaFechas.get(f),proy: p });
+  for (const dato of proyeccion) {
+    const fecha = dato.fecha.slice(0, 10);
+    fechas.set(fecha, { ...fechas.get(fecha), fecha, proyectado: dato });
   }
+  return [...fechas.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
 
-  const fechasOrdenadas=Array.from(mapaFechas.keys()).sort((a,b) =>
-    a.localeCompare(b)
-  );
-
-  const puntosEje: PuntoFecha[]=fechasOrdenadas.map((fecha,indice) => ({
-    fecha,
-    indice,
-    ...mapaFechas.get(fecha),
-  }));
-
-  if(puntosEje.length===0) {
-    return null;
-  }
-
-  const valoresNumericos: number[]=[];
-  for(const o of observado) {
-    valoresNumericos.push(o.infectados);
-    if(o.susceptibles!==null) valoresNumericos.push(o.susceptibles);
-    if(o.recuperados!==null) valoresNumericos.push(o.recuperados);
-  }
-  for(const p of proyeccion) {
-    valoresNumericos.push(p.susceptibles,p.infectados,p.recuperados);
-  }
-
-  const maximo=Math.max(1,...valoresNumericos);
-  const totalPasos=Math.max(1,puntosEje.length-1);
-
-  const x=(indice: number) => 70+(indice/totalPasos)*650;
-  const y=(valor: number) => 230-(valor/maximo)*195;
-
-  const indicePorFecha=new Map<string,number>();
-  puntosEje.forEach((p) => indicePorFecha.set(p.fecha,p.indice));
-
-  function construirPuntosObs(
-    selector: (o: SIRObservation) => number|null
-  ): { x: number; y: number; fecha: string; valor: number }[] {
-    const lista: { x: number; y: number; fecha: string; valor: number }[]=[];
-    for(const o of observado) {
-      const val=selector(o);
-      const idx=indicePorFecha.get(o.fecha.slice(0,10));
-      if(val!==null&&Number.isFinite(val)&&idx!==undefined) {
-        lista.push({
-          x: x(idx),
-          y: y(val),
-          fecha: o.fecha.slice(0,10),
-          valor: val,
-        });
-      }
+function construirSerie(datos: readonly PuntoFecha[], fuente: "observado" | "proyectado", variable: Variable,
+  x: (fecha: string) => number, y: (valor: number) => number) {
+  let trazado = "";
+  let continuar = false;
+  const puntos: PuntoSerie[] = [];
+  for (const dato of datos) {
+    const valor = dato[fuente]?.[variable];
+    if (valor == null || !Number.isFinite(valor)) {
+      continuar = false;
+      continue;
     }
-    return lista;
+    const punto = { x: x(dato.fecha), y: y(valor), fecha: dato.fecha, valor };
+    trazado += `${continuar ? "L" : "M"}${punto.x},${punto.y} `;
+    puntos.push(punto);
+    continuar = true;
   }
+  return { trazado: trazado.trim(), puntos };
+}
 
-  function construirPuntosProy(
-    selector: (p: SIRProjectedDay) => number
-  ): { x: number; y: number; fecha: string; valor: number }[] {
-    const lista: { x: number; y: number; fecha: string; valor: number }[]=[];
-    for(const p of proyeccion) {
-      const val=selector(p);
-      const idx=indicePorFecha.get(p.fecha.slice(0,10));
-      if(Number.isFinite(val)&&idx!==undefined) {
-        lista.push({
-          x: x(idx),
-          y: y(val),
-          fecha: p.fecha.slice(0,10),
-          valor: val,
-        });
-      }
-    }
-    return lista;
-  }
+function DetalleValores({ etiqueta, valores }: { readonly etiqueta: string; readonly valores: ValorSIR }) {
+  return <span><strong>{etiqueta}</strong> — S: {formatearNumero(valores.susceptibles)} · I: {formatearNumero(valores.infectados)} · R: {formatearNumero(valores.recuperados)}</span>;
+}
 
-  const obsS=construirPuntosObs((o) => o.susceptibles);
-  const obsI=construirPuntosObs((o) => o.infectados);
-  const obsR=construirPuntosObs((o) => o.recuperados);
+export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
+  const id = useId();
+  const [soloInfectados, setSoloInfectados] = useState(false);
+  const [fechaActiva, setFechaActiva] = useState<string | null>(null);
+  const fechas = combinarFechas(observado, proyeccion);
+  if (!fechas.length) return null;
 
-  const proyS=construirPuntosProy((p) => p.susceptibles);
-  const proyI=construirPuntosProy((p) => p.infectados);
-  const proyR=construirPuntosProy((p) => p.recuperados);
-
-  const fechaInicioProy=proyeccion[0]?.fecha.slice(0,10);
-  const idxInicioProy=fechaInicioProy
-    ? indicePorFecha.get(fechaInicioProy)
-    :undefined;
-
-  const etiquetasX=
-    puntosEje.length<=6
-      ? puntosEje
-      :[
-        puntosEje[0],
-        puntosEje[Math.floor(puntosEje.length*0.25)],
-        puntosEje[Math.floor(puntosEje.length*0.5)],
-        puntosEje[Math.floor(puntosEje.length*0.75)],
-        puntosEje.at(-1)!,
-      ];
-
-  const puntoSeleccionado=
-    indiceActivo!==null? puntosEje[indiceActivo]??null:null;
+  const primeraFecha = fechas[0].fecha;
+  const ultimaFecha = fechas.at(-1)!.fecha;
+  const dias = Math.max(1, (fechaEnMs(ultimaFecha) - fechaEnMs(primeraFecha)) / DIA_MS);
+  const x = (fecha: string) => 70 + ((fechaEnMs(fecha) - fechaEnMs(primeraFecha)) / DIA_MS / dias) * 650;
+  const visibles = SERIES.filter((serie) => !soloInfectados || serie.clave === "infectados");
+  const valores = fechas.flatMap((punto) => visibles.flatMap(({ clave }) => [punto.observado?.[clave], punto.proyectado?.[clave]]))
+    .filter((valor): valor is number => valor != null && Number.isFinite(valor));
+  const maximo = Math.max(1, ...valores);
+  const pasoEje = Math.max(1, Math.ceil(maximo / 4));
+  const techo = pasoEje * 4;
+  const y = (valor: number) => 230 - (valor / techo) * 195;
+  const inicioProyeccion = fechas.find((punto) => punto.proyectado)?.fecha;
+  const seleccion = fechas.find((punto) => punto.fecha === fechaActiva)
+    ?? fechas.findLast((punto) => punto.observado) ?? fechas[0];
+  const etiquetas = fechas.filter((_, indice) => indice % Math.max(1, Math.ceil((fechas.length - 1) / 4)) === 0 || indice === fechas.length - 1);
 
   return (
-    <figure className="border-t-2 border-[#008994] bg-white p-5 shadow-xs">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <figcaption className="text-sm font-bold text-[#164652]">
-          {titulo}
-        </figcaption>
-        <span className="text-xs text-[#53636B]">
-          Línea continua: observado · Línea punteada: proyección RK4
-        </span>
+    <figure aria-labelledby={`${id}-titulo`} className="border-t-2 border-[#008994] bg-white p-4 shadow-xs sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <figcaption id={`${id}-titulo`} className="text-sm font-bold text-[#164652]">{titulo}</figcaption>
+        <fieldset className="flex min-w-0 flex-wrap gap-2">
+          <legend className="sr-only">Series visibles</legend>
+          <button type="button" aria-pressed={!soloInfectados} onClick={() => setSoloInfectados(false)}
+            className="border border-[#DCE6EA] px-3 py-1.5 text-xs font-semibold text-[#164652] aria-pressed:bg-[#E6F9FA] focus-visible:outline-2 focus-visible:outline-[#008994]">Todas las series</button>
+          <button type="button" aria-pressed={soloInfectados} onClick={() => setSoloInfectados(true)}
+            className="border border-[#DCE6EA] px-3 py-1.5 text-xs font-semibold text-[#164652] aria-pressed:bg-[#E6F9FA] focus-visible:outline-2 focus-visible:outline-[#008994]">Solo infectados</button>
+        </fieldset>
       </div>
-
-      <svg
-        viewBox="0 0 760 285"
-        role="img"
-        aria-label={titulo}
-        className="h-auto w-full select-none"
-      >
-        <title>
-          {titulo}. Eje horizontal: fechas del registro y proyección. Eje
-          vertical: personas.
-        </title>
-
-        {/* Líneas guía horizontales */}
-        {[0,0.25,0.5,0.75,1].map((fraccion) => (
-          <g key={fraccion}>
-            <line
-              x1="70"
-              y1={y(maximo*fraccion)}
-              x2="720"
-              y2={y(maximo*fraccion)}
-              stroke="#E6EEF0"
-            />
-            <text
-              x="62"
-              y={y(maximo*fraccion)+4}
-              textAnchor="end"
-              fontSize="11"
-              fill="#53636B"
-            >
-              {Math.round(maximo*fraccion).toLocaleString("es-CO")}
-            </text>
-          </g>
-        ))}
-
-        {/* Línea divisoria de inicio de proyección */}
-        {idxInicioProy!==undefined&&proyeccion.length>0&&(
-          <g>
-            <line
-              x1={x(idxInicioProy)}
-              y1="28"
-              x2={x(idxInicioProy)}
-              y2="230"
-              stroke="#008994"
-              strokeWidth="1.5"
-              strokeDasharray="4 4"
-            />
-            <text
-              x={x(idxInicioProy)+6}
-              y="24"
-              fontSize="10"
-              fontWeight="600"
-              fill="#008994"
-            >
-              Inicio proyección ({formatearFechaCorta(fechaInicioProy!)})
-            </text>
-          </g>
-        )}
-
-        {/* Etiquetas de fechas en eje X */}
-        {etiquetasX.map((pt) => (
-          <text
-            key={pt.fecha}
-            x={x(pt.indice)}
-            y="252"
-            textAnchor="middle"
-            fontSize="11"
-            fill="#53636B"
-          >
-            {formatearFechaCorta(pt.fecha)}
-          </text>
-        ))}
-
-        <text
-          x="395"
-          y="274"
-          textAnchor="middle"
-          fontSize="11"
-          fill="#53636B"
-        >
-          Fecha (observado y horizonte proyectado)
-        </text>
-
-        {/* Series Observadas (línea continua + puntos) */}
-        {[
-          { clave: "obs-s",puntos: obsS,color: COLORES.susceptibles },
-          { clave: "obs-i",puntos: obsI,color: COLORES.infectados },
-          { clave: "obs-r",puntos: obsR,color: COLORES.recuperados },
-        ].map(
-          ({ clave,puntos,color }) =>
-            puntos.length>0&&(
-              <g key={clave}>
-                {puntos.length>1&&(
-                  <polyline
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="2.5"
-                    points={puntos.map((p) => `${p.x},${p.y}`).join(" ")}
-                  />
-                )}
-                {puntos.map((p) => (
-                  <circle
-                    key={`${clave}-${p.fecha}`}
-                    cx={p.x}
-                    cy={p.y}
-                    r="3.5"
-                    fill={color}
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                  />
-                ))}
-              </g>
-            )
-        )}
-
-        {/* Series Proyectadas (línea discontinua) */}
-        {[
-          { clave: "proy-s",puntos: proyS,color: COLORES.susceptibles },
-          { clave: "proy-i",puntos: proyI,color: COLORES.infectados },
-          { clave: "proy-r",puntos: proyR,color: COLORES.recuperados },
-        ].map(
-          ({ clave,puntos,color }) =>
-            puntos.length>1&&(
-              <polyline
-                key={clave}
-                fill="none"
-                stroke={color}
-                strokeWidth="2.5"
-                strokeDasharray="6 4"
-                points={puntos.map((p) => `${p.x},${p.y}`).join(" ")}
-              />
-            )
-        )}
-
-        {/* Franjas interactivas para inspección por fecha */}
-        {puntosEje.map((pt) => {
-          const ancho=Math.max(12,650/Math.max(1,puntosEje.length));
-          return (
-            <rect
-              key={`hit-${pt.fecha}`}
-              x={x(pt.indice)-ancho/2}
-              y="25"
-              width={ancho}
-              height="210"
-              fill="transparent"
-              className="cursor-pointer"
-              onMouseEnter={() => setIndiceActivo(pt.indice)}
-              onClick={() => setIndiceActivo(pt.indice)}
-            />
-          );
-        })}
-      </svg>
-
-      {/* Tooltip / Detalle de fecha seleccionada */}
-      {puntoSeleccionado&&(
-        <div
-          aria-live="polite"
-          className="mt-2 flex flex-wrap items-center gap-4 bg-[#F4F8FA] px-3.5 py-2 text-xs text-[#164652]"
-        >
-          <strong className="font-bold">
-            Fecha: {puntoSeleccionado.fecha}
-          </strong>
-          {puntoSeleccionado.obs&&(
-            <span>
-              <strong>Observado</strong> — S:{" "}
-              {formatearNumero(puntoSeleccionado.obs.susceptibles)} · I:{" "}
-              {formatearNumero(puntoSeleccionado.obs.infectados)} · R:{" "}
-              {formatearNumero(puntoSeleccionado.obs.recuperados)}
-            </span>
-          )}
-          {puntoSeleccionado.proy&&(
-            <span>
-              <strong>Proyección (día {puntoSeleccionado.proy.dia})</strong> —
-              S: {formatearNumero(puntoSeleccionado.proy.susceptibles)} · I:{" "}
-              {formatearNumero(puntoSeleccionado.proy.infectados)} · R:{" "}
-              {formatearNumero(puntoSeleccionado.proy.recuperados)}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Leyenda accesible */}
-      <ul className="mt-3 flex flex-wrap gap-5 border-t border-[#EEF2F4] pt-3 text-xs text-[#375257]">
-        <li className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="inline-block h-1 w-5"
-            style={{ backgroundColor: COLORES.susceptibles }}
-          />
-          <span>Susceptibles (S) — observado</span>
-        </li>
-        <li className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="inline-block h-1 w-5"
-            style={{ backgroundColor: COLORES.infectados }}
-          />
-          <span>Infectados activos (I) — observado</span>
-        </li>
-        <li className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="inline-block h-1 w-5"
-            style={{ backgroundColor: COLORES.recuperados }}
-          />
-          <span>Recuperados (R) — observado</span>
-        </li>
-        {proyeccion.length>0&&(
-          <li className="flex items-center gap-2 font-medium text-[#164652]">
-            <span
-              aria-hidden="true"
-              className="inline-block w-5 border-t-2 border-dashed border-[#164652]"
-            />
-            <span>Proyección RK4 (S, I, R discontinuas)</span>
-          </li>
-        )}
+      <p className="text-xs text-[#53636B]">Línea continua y puntos: observado. Línea discontinua y fondo sombreado: proyección RK4.</p>
+      <p className="mt-1 text-xs text-[#53636B]">La distancia entre fechas representa días reales. Los datos desconocidos interrumpen la línea.</p>
+      <div className="mt-3 overflow-x-auto">
+        <svg viewBox="0 0 760 285" role="img" aria-labelledby={`${id}-titulo ${id}-descripcion`}
+          className="h-auto w-full min-w-[620px] select-none">
+          <title>{titulo}</title>
+          <desc id={`${id}-descripcion`}>Eje horizontal: fechas. Eje vertical: personas. Use el selector de fecha para consultar los valores observados y estimados.</desc>
+          {inicioProyeccion && <rect x={x(inicioProyeccion)} y="28" width={720 - x(inicioProyeccion)} height="202" fill="#E6F9FA" opacity="0.65" />}
+          {[0, 1, 2, 3, 4].map((indice) => <g key={indice}>
+            <line x1="70" y1={y(pasoEje * indice)} x2="720" y2={y(pasoEje * indice)} stroke="#DCE6EA" />
+            <text x="62" y={y(pasoEje * indice) + 4} textAnchor="end" fontSize="11" fill="#53636B">{formatearNumero(pasoEje * indice)}</text>
+          </g>)}
+          <text x="70" y="16" fontSize="11" fill="#53636B">Personas</text>
+          {inicioProyeccion && <g>
+            <line x1={x(inicioProyeccion)} y1="28" x2={x(inicioProyeccion)} y2="230" stroke="#008994" strokeDasharray="4 4" />
+            <text x={Math.min(714, x(inicioProyeccion) + 6)} y="24" textAnchor={x(inicioProyeccion) > 500 ? "end" : "start"} fontSize="10" fill="#047270">Inicio proyección ({fechaCorta(inicioProyeccion)})</text>
+          </g>}
+          {etiquetas.map((punto) => <text key={punto.fecha} x={x(punto.fecha)} y="252" textAnchor="middle" fontSize="11" fill="#53636B">{fechaCorta(punto.fecha)}</text>)}
+          <text x="395" y="274" textAnchor="middle" fontSize="11" fill="#53636B">Fecha · observado y horizonte proyectado</text>
+          {visibles.map((serie) => {
+            const obs = construirSerie(fechas, "observado", serie.clave, x, y);
+            const proy = construirSerie(fechas, "proyectado", serie.clave, x, y);
+            return <g key={serie.clave} data-serie={serie.clave}>
+              <path data-fuente="observado" d={obs.trazado} fill="none" stroke={serie.color} strokeWidth="2.5" />
+              {obs.puntos.map((punto) => <circle key={punto.fecha} cx={punto.x} cy={punto.y} r="3.5" fill={serie.color} stroke="white" strokeWidth="1.2">
+                <title>{`${serie.nombre} · ${punto.fecha}: ${formatearNumero(punto.valor)} observado`}</title>
+              </circle>)}
+              <path data-fuente="proyectado" d={proy.trazado} fill="none" stroke={serie.color} strokeWidth="2.5" strokeDasharray="6 4" />
+              {proy.puntos.length === 1 && <circle cx={proy.puntos[0].x} cy={proy.puntos[0].y} r="3.5" fill={serie.color} />}
+            </g>;
+          })}
+          <line x1={x(seleccion.fecha)} x2={x(seleccion.fecha)} y1="28" y2="230" stroke="#718895" strokeDasharray="2 5" />
+          {fechas.map((punto) => <rect key={punto.fecha} x={Math.max(70, x(punto.fecha) - 6)} y="28" width="12" height="202" fill="transparent" onMouseEnter={() => setFechaActiva(punto.fecha)} />)}
+        </svg>
+      </div>
+      <p className="mt-1 text-xs text-[#53636B] sm:hidden">Desliza horizontalmente para ver toda la gráfica.</p>
+      <ul className="mt-3 flex flex-wrap gap-4 border-t border-[#EEF2F4] pt-3 text-xs text-[#375257]">
+        {visibles.map((serie) => <li key={serie.clave} className="flex items-center gap-2">
+          <span aria-hidden="true" className="inline-block h-1 w-5" style={{ backgroundColor: serie.color }} />{serie.nombre}
+        </li>)}
       </ul>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#164652]">
+        <label htmlFor={`${id}-fecha`} className="font-semibold">Fecha para inspeccionar</label>
+        <select id={`${id}-fecha`} value={seleccion.fecha} onChange={(event) => setFechaActiva(event.target.value)} className="border border-[#DCE6EA] bg-white px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-[#008994]">
+          {fechas.map((punto) => <option key={punto.fecha} value={punto.fecha}>{punto.fecha}</option>)}
+        </select>
+      </div>
+      <div aria-live="polite" className="mt-2 flex flex-wrap gap-3 bg-[#F4F8FA] px-3 py-2 text-xs text-[#164652]">
+        <strong>Fecha: {seleccion.fecha}</strong>
+        {seleccion.observado && <DetalleValores etiqueta="Observado" valores={seleccion.observado} />}
+        {seleccion.proyectado && <DetalleValores etiqueta={`Proyección (día ${seleccion.proyectado.dia})`} valores={seleccion.proyectado} />}
+      </div>
+      {!inicioProyeccion && <p className="mt-2 text-xs text-[#784900]">Solo hay observaciones disponibles; no se ha generado una proyección para esta serie.</p>}
     </figure>
   );
 }
