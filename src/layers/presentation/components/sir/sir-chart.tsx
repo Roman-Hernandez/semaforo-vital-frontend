@@ -107,12 +107,13 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
     <figure aria-labelledby={`${id}-titulo`} className="border-t-2 border-[#008994] bg-white p-4 shadow-xs sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <figcaption id={`${id}-titulo`} className="text-sm font-bold text-[#164652]">{titulo}</figcaption>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Series visibles">
+        <fieldset className="flex min-w-0 flex-wrap gap-2">
+          <legend className="sr-only">Series visibles</legend>
           <button type="button" aria-pressed={!soloInfectados} onClick={() => setSoloInfectados(false)}
             className="border border-[#DCE6EA] px-3 py-1.5 text-xs font-semibold text-[#164652] aria-pressed:bg-[#E6F9FA] focus-visible:outline-2 focus-visible:outline-[#008994]">Todas las series</button>
           <button type="button" aria-pressed={soloInfectados} onClick={() => setSoloInfectados(true)}
             className="border border-[#DCE6EA] px-3 py-1.5 text-xs font-semibold text-[#164652] aria-pressed:bg-[#E6F9FA] focus-visible:outline-2 focus-visible:outline-[#008994]">Solo infectados</button>
-        </div>
+        </fieldset>
       </div>
       <p className="text-xs text-[#53636B]">Línea continua y puntos: observado. Línea discontinua y fondo sombreado: proyección RK4.</p>
       <p className="mt-1 text-xs text-[#53636B]">La distancia entre fechas representa días reales. Los datos desconocidos interrumpen la línea.</p>
