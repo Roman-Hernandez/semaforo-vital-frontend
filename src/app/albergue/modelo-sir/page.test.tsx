@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
 import ModeloSIRPage from "@/layers/presentation/pages/modelo-sir-page";
 import type {
   SIRGateway,
@@ -23,7 +23,7 @@ const resultadoCompleto: SIRResult = {
   resultados: {
     items: [
       {
-        enfermedad: "Infección respiratoria aguda",
+        enfermedad: "Enfermedad diarreica aguda",
         estado: "estimacion_disponible",
         motivos: [],
         datos_faltantes: [],
@@ -88,14 +88,8 @@ const resultadoCompleto: SIRResult = {
             recuperados: 100.7,
           },
         ],
-        parametros_estimados: {
-          beta: 0.4215,
-          gamma: 0.1842,
-          error_ajuste_infectados: 0.65,
-          intervalos_utilizados: 3,
-          metodo:
-            "Minimos cuadrados de flujos SIR integrados con regla trapezoidal",
-        },
+        parametros_estimados: null,
+        parametros_referencia: { beta: 0.275, gamma: 0.1 },
         resumen: {
           pico_infectados_en_horizonte: 38.6,
           fecha_pico_en_horizonte: "2026-11-24",
@@ -105,173 +99,62 @@ const resultadoCompleto: SIRResult = {
           error_maximo_poblacion: 1e-11,
         },
       },
-      {
-        enfermedad: "Enfermedad diarreica aguda",
-        estado: "datos_insuficientes",
-        motivos: [
-          "Complete los registros sanitarios indicados para estimar el modelo automáticamente",
-        ],
-        datos_faltantes: ["cantidad_recuperados", "historial_minimo_4_fechas"],
-        observado: [
-          {
-            fecha: "2026-11-16",
-            poblacion: 300,
-            infectados: 4,
-            recuperados: null,
-            susceptibles: null,
-            registro_casos_id: "507f1f77bcf86cd799439099",
-            registro_poblacion_id: "507f1f77bcf86cd799439022",
-          },
-        ],
-        proyeccion: [],
-        parametros_estimados: null,
-        resumen: null,
-      },
-      {
-        enfermedad: "Dermatitis",
-        estado: "datos_incompatibles",
-        motivos: [
-          "La serie implica reinfecciones, entradas o correcciones incompatibles con SIR cerrado",
-        ],
-        datos_faltantes: [],
-        observado: [],
-        proyeccion: [],
-        parametros_estimados: null,
-        resumen: null,
-      },
-      {
-        enfermedad: "Conjuntivitis",
-        estado: "sin_casos_activos",
-        motivos: [
-          "El último registro no tiene casos activos; SIR no estima la introducción de nuevos contagios externos",
-        ],
-        datos_faltantes: [],
-        observado: [],
-        proyeccion: [],
-        parametros_estimados: null,
-        resumen: null,
-      },
     ],
     page: 1,
     page_size: 20,
-    total: 4,
+    total: 1,
     total_pages: 1,
     has_next: false,
     has_previous: false,
   },
 };
 
-describe("Laboratorio SIR automático (/albergue/modelo-sir)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("consulta automáticamente GET /resultados sin pedir N, S, I, R, beta ni gamma manuales, y renderiza los 4 estados funcionales", async () => {
-    const gateway: SIRGateway = {
-      consultarResultados: vi.fn(async () => resultadoCompleto),
-    };
-
-    render(<ModeloSIRPage gateway={gateway} />);
-
-    expect(
-      await screen.findByText("[DEMO] Albergue San José")
-    ).toBeInTheDocument();
-
-    expect(gateway.consultarResultados).toHaveBeenCalledWith({
-      page: 1,
-      page_size: 20,
-      enfermedad: undefined,
-    });
-
-    // No existen inputs manuales de parámetros ni botones PoC
-    expect(
-      screen.queryByRole("button", { name: /Cargar ejemplo PoC/i })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/Población total \(N\)/i)
-    ).not.toBeInTheDocument();
-
-    // Estado 1: estimacion_disponible con gráfica, máximo en horizonte y parámetros estimados de solo lectura
-    expect(
-      screen.getByText(/Máximo de infectados en el horizonte/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText(/38,6 personas/i)).toBeInTheDocument();
-    expect(screen.getByText(/0,4215 \/ día/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", {
-        name: /Trayectoria S \/ I \/ R · Infección respiratoria aguda/i,
-      })
-    ).toBeInTheDocument();
-
-    // Estado 2: datos_insuficientes con enlaces a registro de población y enfermedades
-    expect(
-      screen.getByText(
-        /Falta informar la cantidad de personas recuperadas observadas/i
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Registrar casos y recuperados/i })
-    ).toHaveAttribute("href", "/albergue/enfermedades");
-
-    // Estado 3: datos_incompatibles
-    expect(
-      screen.getByText(/La serie implica reinfecciones/i)
-    ).toBeInTheDocument();
-
-    // Estado 4: sin_casos_activos
-    expect(
-      screen.getByText(/no estima la introducción de nuevos contagios externos/i)
-    ).toBeInTheDocument();
-  });
-
-  it("permite filtrar por nombre de enfermedad en el servidor y paginar resultados", async () => {
-    const gateway: SIRGateway = {
-      consultarResultados: vi.fn(async () => resultadoCompleto),
-    };
-
-    render(<ModeloSIRPage gateway={gateway} />);
-    await screen.findByText("[DEMO] Albergue San José");
-
-    fireEvent.change(screen.getByLabelText("Filtrar por enfermedad"), {
-      target: { value: "Dermatitis" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar" }));
-
-    await waitFor(() => {
-      expect(gateway.consultarResultados).toHaveBeenCalledWith({
-        page: 1,
-        page_size: 20,
-        enfermedad: "Dermatitis",
-      });
-    });
-  });
-
-  it("muestra estado vacío raíz y datos_faltantes cuando el albergue no tiene enfermedades registradas", async () => {
-    const gateway: SIRGateway = {
-      consultarResultados: vi.fn(async () => ({
+it("simula EDA solo al pulsar el botón y conserva la última corrida si cambia la población", async () => {
+  const item = resultadoCompleto.resultados.items[0];
+  const gateway: SIRGateway = {
+    consultarResultados: vi.fn(async () => resultadoCompleto),
+    simular: vi.fn()
+      .mockResolvedValueOnce(resultadoCompleto)
+      .mockResolvedValueOnce({
         ...resultadoCompleto,
-        poblacion_actual: null,
-        fecha_poblacion: null,
-        datos_faltantes: ["poblacion_actual", "casos_enfermedades"],
+        poblacion_actual: 270,
         resultados: {
-          items: [],
-          page: 1,
-          page_size: 20,
-          total: 0,
-          total_pages: 0,
-          has_next: false,
-          has_previous: false,
+          ...resultadoCompleto.resultados,
+          items: [{
+            ...item,
+            estado: "datos_insuficientes",
+            motivos: ["La población cambió. Actualiza el reporte de EDA para simular."],
+            proyeccion: [],
+            resumen: null,
+          }],
         },
-      })),
-    };
+      }),
+  };
+  render(<ModeloSIRPage gateway={gateway} />);
+  const boton = screen.getByRole("button", { name: "Simular 14 días" });
+  expect(gateway.simular).not.toHaveBeenCalled();
+  expect(gateway.consultarResultados).not.toHaveBeenCalled();
 
-    render(<ModeloSIRPage gateway={gateway} />);
+  fireEvent.click(boton);
+  expect(await screen.findByText("Simulación disponible")).toBeInTheDocument();
+  expect(gateway.simular).toHaveBeenCalledWith({ enfermedad: "Enfermedad diarreica aguda" });
+  expect(screen.getByText("Tasas de referencia de estudios de norovirus")).toBeInTheDocument();
+  expect(screen.getByText("≈ 24 personas")).toBeInTheDocument();
+  expect(screen.getByText("≈ 101 personas")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText(
-        /Falta registrar el conteo de población vigente del albergue/i
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText("Sin registro")).toBeInTheDocument();
-  });
+  const simulacion = screen.getByRole("tab", { name: "Simulación" });
+  fireEvent.keyDown(simulacion, { key: "ArrowRight" });
+  const guia = screen.getByRole("tabpanel", { name: "Cómo funciona el SIR" });
+  expect(within(guia).getByText(/0,275 por día/)).toBeInTheDocument();
+  expect(within(guia).getByText(/0,100 por día/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Simular 14 días" })).not.toBeInTheDocument();
+  fireEvent.click(simulacion);
+  expect(screen.getByText("≈ 101 personas")).toBeInTheDocument();
+
+
+  fireEvent.click(boton);
+  expect(await screen.findByText(/La población cambió/)).toBeInTheDocument();
+  expect(gateway.simular).toHaveBeenCalledTimes(2);
+  expect(within(screen.getByRole("region", { name: "Datos de la corrida" }))
+    .getByText("Población de la corrida · 300")).toBeInTheDocument();
 });

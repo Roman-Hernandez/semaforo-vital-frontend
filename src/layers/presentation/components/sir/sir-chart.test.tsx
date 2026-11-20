@@ -45,7 +45,7 @@ describe("Gráficas SIR: fidelidad de datos e interacción", () => {
     expect(screen.getByText("Proyección (día 0)")).toBeInTheDocument();
     expect(container.querySelector('path[data-fuente="proyectado"]')).toHaveAttribute("stroke-dasharray", "6 4");
     fireEvent.change(screen.getByLabelText("Fecha para inspeccionar"), { target: { value: "2026-11-18" } });
-    expect(screen.getByText("Proyección (día 1)").parentElement).toHaveTextContent("S: 168,5 · I: 10,5 · R: 21");
+    expect(screen.getByText("Proyección (día 1)").parentElement).toHaveTextContent("S: 169 · I: 11 · R: 21");
     expect(screen.queryByText("Observado")).not.toBeInTheDocument();
   });
 
@@ -88,6 +88,10 @@ describe("Gráficas SIR: fidelidad de datos e interacción", () => {
     const figures = screen.getAllByRole("figure");
     expect(figures).toHaveLength(2);
     expect(within(figures[0]).getByLabelText("Fecha para inspeccionar").id).not.toBe(within(figures[1]).getByLabelText("Fecha para inspeccionar").id);
-    expect(figures[0].querySelectorAll('svg text[y="252"]').length).toBeLessThanOrEqual(5);
+    const marcas = [...figures[0].querySelectorAll("[data-fecha-eje]")];
+    expect(marcas).toHaveLength(13);
+    expect(marcas[0]).toHaveAttribute("data-fecha-eje", "2026-10-01");
+    expect(marcas.at(-1)).toHaveAttribute("data-fecha-eje", "2026-10-28");
+    expect(marcas[0]).toHaveTextContent(/1 oct/i);
   });
 });
