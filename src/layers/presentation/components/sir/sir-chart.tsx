@@ -121,8 +121,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
       </div>
       <p className="text-xs text-[#53636B]">Línea continua y puntos: observado. Línea discontinua y fondo sombreado: proyección RK4. Los conteos proyectados se muestran redondeados.</p>
       <p className="mt-1 text-xs text-[#53636B]">La distancia entre fechas representa días reales. Los datos desconocidos interrumpen la línea.</p>
-      <div role="region" aria-label="Gráfico con desplazamiento horizontal" tabIndex={0}
-        className="mt-3 overflow-x-auto focus-visible:outline-2 focus-visible:outline-[#008994]">
+      <section aria-label="Gráfico con desplazamiento horizontal" className="mt-3 overflow-x-auto">
         <svg viewBox="0 0 760 285" role="img" aria-labelledby={`${id}-titulo ${id}-descripcion`}
           className="h-auto w-full min-w-[760px] select-none">
           <title>{titulo}</title>
@@ -161,7 +160,7 @@ export function SIRChart({ titulo, observado, proyeccion }: SIRChartProps) {
           <line x1={x(seleccion.fecha)} x2={x(seleccion.fecha)} y1="28" y2="230" stroke="#718895" strokeDasharray="2 5" />
           {fechas.map((punto) => <rect key={punto.fecha} x={Math.max(70, x(punto.fecha) - 6)} y="28" width="12" height="202" fill="transparent" onMouseEnter={() => setFechaActiva(punto.fecha)} />)}
         </svg>
-      </div>
+      </section>
       <p className="mt-1 text-xs text-[#53636B] min-[850px]:hidden">Desliza horizontalmente para ver toda la gráfica.</p>
       <ul className="mt-3 flex flex-wrap gap-4 border-t border-[#EEF2F4] pt-3 text-xs text-[#375257]">
         {visibles.map((serie) => <li key={serie.clave} className="flex items-center gap-2">

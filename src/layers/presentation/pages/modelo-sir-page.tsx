@@ -381,7 +381,9 @@ export default function ModeloSIRPage({ gateway = sirGateway }: ModeloSIRPagePro
             onKeyDown={(evento) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
               evento.preventDefault();
-              const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? 1 : 1 - indice;
+              let siguiente = 1 - indice;
+              if (evento.key === "Home") siguiente = 0;
+              if (evento.key === "End") siguiente = PESTANAS.length - 1;
               setPestana(siguiente);
               document.getElementById(`${id}-tab-${siguiente}`)?.focus();
             }}
@@ -399,11 +401,11 @@ export default function ModeloSIRPage({ gateway = sirGateway }: ModeloSIRPagePro
           Simular 14 días
         </button>
 
-        {cargando && <p role="status">Consultando registros y simulando…</p>}
+        {cargando && <output className="block">Consultando registros y simulando…</output>}
         {error && <p role="alert" className="text-[#B02A30]">{error}</p>}
         {resultado && !item && (
-          <p role="status">
-            No hay reportes recientes de EDA.{" "}
+          <p>
+            <output>No hay reportes recientes de EDA.</output>{" "}
             <Link className="underline" href="/albergue/enfermedades">Ir al registro de enfermedades</Link>
           </p>
         )}
